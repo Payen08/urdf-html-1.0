@@ -14,9 +14,35 @@
   }
   </script>
   <style>
-    body { margin: 0; display: flex; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, Pingfang; background:#222; }
-    #sidebar { width: 500px; background: #f6f7f9; margin: 16px; box-sizing: border-box; overflow: auto; border-right: 1px solid #ddd; border-radius: 16px; padding:8px 16px; }
-    #viewer { flex: 1; position: relative; background: #f4fcfe; }
+    body { margin: 0; display: flex; height: 100vh; overflow:hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, Pingfang; background:#222; }
+    #sidebar { flex:0 0 500px; width:500px; background: #f6f7f9; margin: 16px; box-sizing: border-box; overflow: auto; border-right: 1px solid #ddd; border-radius: 16px; padding:8px 16px; opacity:1; transition:flex-basis 0.22s ease, width 0.22s ease, margin 0.22s ease, padding 0.22s ease, opacity 0.18s ease; }
+    body.sidebar-collapsed #sidebar { flex-basis:0; width:0; margin-left:0; margin-right:0; padding-left:0; padding-right:0; border:0; opacity:0; pointer-events:none; }
+    #viewerShell { min-width:0; flex:1; position:relative; background:#222; }
+    #viewerShell.maximized { position:fixed; inset:0; z-index:2500; background:#222; }
+    #viewer { position:absolute; inset:0; background: #f4fcfe; }
+    #viewer canvas { display:block; }
+    #viewerShell:fullscreen { background:#222; }
+    .sidebar-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding-top:2px; }
+    .sidebar-head h3 { min-width:0; }
+    .panel-actions, .viewer-toolbar { display:flex; align-items:center; gap:8px; }
+    .viewer-toolbar { position:absolute; top:20px; right:20px; z-index:20; }
+    .icon-btn { flex:none; width:34px; height:34px; padding:0; border:none; border-radius:8px; color:#444; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.12); }
+    .icon-btn:hover { background:#ececf5; color:#241F7D; }
+    .viewer-toolbar .icon-btn { color:#fff; background:rgba(35,35,35,0.9); box-shadow:none; }
+    .viewer-toolbar .icon-btn:hover { background:#2F28A3; color:#fff; }
+    .asset-panel { margin:10px 0 12px; padding:10px; border:1px solid #e7e7ef; border-radius:8px; background:#fbfbfd; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .section-head h4 { margin:0; color:#333; font-size:14px; }
+    .asset-panel-body { display:grid; gap:10px; margin-top:10px; }
+    .asset-panel.collapsed { padding-bottom:10px; }
+    .asset-panel-body[hidden] { display:none; }
+    .upload-field { display:grid; gap:5px; }
+    .upload-label { color:#555; font-size:12px; font-weight:600; }
+    .file-row { display:flex; align-items:center; gap:8px; min-width:0; }
+    .native-file-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; white-space:nowrap; }
+    .file-picker { flex:none; display:flex; align-items:center; justify-content:center; gap:6px; height:34px; min-width:104px; box-sizing:border-box; margin:0; padding:0 10px; border-radius:8px; color:#fff; background:#2F28A3; cursor:pointer; font-size:12px; }
+    .file-picker:hover { background:#241F7D; }
+    .file-name { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#333; font-size:12px; }
     .json-container { position: relative; margin-top: 4px; }
     textarea { width: 100%; height: 400px; font-family: Pingfang; font-size: 13px; color: #333; box-sizing: border-box; border: 1px solid #E8E8E8; border-radius: 8px; white-space: pre; resize: vertical; }
     .json-buttons { position: absolute; bottom: 8px; left: 8px; display: flex; gap: 4px; }
@@ -25,18 +51,27 @@
     .joint-control { margin: 8px 0; display:flex; gap:8px; align-items:center; padding:4px; border-radius:6px; }
     .joint-control.selected { background:#EBE9F9; }
     .status { font-size: 12px; color:#666; margin-bottom:8px; padding-top:10px; }
+    .map-status { min-height:18px; color:#666; font-size:12px; }
+    .map-scale-row { display:flex; align-items:center; gap:8px; color:#555; font-size:12px; }
+    .map-scale-row label { margin:0; white-space:nowrap; font-size:12px; }
+    .map-scale-row input[type="range"] { min-width:0; flex:1; }
+    .map-scale-row input[type="number"] { width:68px; height:30px; box-sizing:border-box; border:1px solid #E8E8E8; border-radius:6px; padding:2px 6px; }
+    .map-dim-value { width:34px; color:#555; text-align:right; font-size:12px; }
+    .file-mode-warning { display:none; margin:8px 0; padding:8px; background:#fff4e8; border:1px solid #ffd8ad; border-radius:8px; color:#8a4b08; font-size:12px; line-height:1.4; }
+    .file-mode-warning.active { display:block; }
     button { flex:1; padding: 10px; cursor: pointer; border-radius: 8px; border: 1px solid #E8E8E8; background: #FFF; font-size: 12px; display:flex; align-items:center; justify-content:center; gap:6px; transition: background 0.2s, transform 0.1s; }
     button:hover { background:#f0f0f0; }
     button:active { background:#ddd; transform:scale(0.97); }
-    h3 { margin:0; font-size:20px; padding-top:10px; }
+    button:disabled { cursor:not-allowed; opacity:0.45; transform:none; }
+    button[hidden], [hidden] { display:none !important; }
+    h3 { margin:0; font-size:20px; padding-top:8px; }
     .header-row { display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
     label { display:block; margin:8px 0; color:#333; }
-    input[type="file"]::-webkit-file-upload-button { background: #2F28A3; color: #FFF; border-radius: 8px; border: none; padding: 4px 8px; cursor: pointer; font-size: 13px; width: 100px; height: 30px; }
     .angle-input { width: 60px; text-align: right; border:1px solid #efefef; border-radius:4px; padding:2px 4px; }
     .button-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
     .small-btn { flex:none; padding:6px 8px; font-size:11px; }
-    .view-buttons { position:absolute; bottom:20px; left:60%; transform:translateX(-40%); display:flex; gap:8px; }
-    .view-buttons button { width:80px; height:32px; background:#333; color:#FFF; font-size:12px; padding:8px 0; border: none; border-radius:8px; cursor:pointer; }
+    .view-buttons { position:absolute; bottom:20px; left:50%; z-index:10; max-width:calc(100% - 32px); transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+    .view-buttons button { flex:none; width:80px; height:32px; white-space:nowrap; background:#333; color:#FFF; font-size:12px; padding:8px 0; border: none; border-radius:8px; cursor:pointer; }
     .view-buttons button:hover { background:#2F28A3; color:#FFF; border: none;}
     #jointEditor { position: fixed; top: 16px; bottom: 16px; right: -400px; width: 280px; background: #f6f7f9; box-shadow: -2px 0 8px rgba(0,0,0,0.2); border-left: 1px solid #ddd; border-radius: 16px; transition: right 0.3s ease; padding: 16px; margin: 0 8px 0 0; box-sizing: border-box; z-index: 1000; display:flex; flex-direction:column; }
     #jointEditor.active { right: 0; }
@@ -62,10 +97,50 @@
 </head>
 <body>
 <div id="sidebar">
-  <h3>Payen Tools - GLB URDF JSON Viewer</h3>
-  
-  <label><strong>上传 GLB / GLTF</strong></label>
-  <input type="file" id="glbInput" accept=".glb,.gltf" />
+  <div class="sidebar-head">
+    <h3>Payen Tools - GLB URDF JSON Viewer</h3>
+    <div class="panel-actions">
+      <button id="collapseSidebarBtn" class="icon-btn" title="隐藏侧栏" aria-label="隐藏侧栏"><i class="fa-solid fa-angles-left"></i></button>
+    </div>
+  </div>
+  <div id="fileModeWarning" class="file-mode-warning">当前以本地文件方式打开，浏览器会拦截部分模型资源。请用本地预览地址打开页面。</div>
+  <section id="assetPanel" class="asset-panel">
+    <div class="section-head">
+      <h4>模型与地图</h4>
+      <button id="assetToggleBtn" class="icon-btn" title="收起资源区" aria-label="收起资源区"><i class="fa-solid fa-chevron-up"></i></button>
+    </div>
+    <div id="assetPanelBody" class="asset-panel-body">
+      <div class="upload-field">
+        <div class="upload-label">GLB / GLTF</div>
+        <div class="file-row">
+          <input class="native-file-input" type="file" id="glbInput" accept=".glb,.gltf" />
+          <label class="file-picker" for="glbInput"><i class="fa-solid fa-cube"></i> 上传模型</label>
+          <span id="modelFileName" class="file-name">未选择模型</span>
+        </div>
+      </div>
+      <div class="upload-field">
+        <div class="upload-label">地图 JSON / PNG</div>
+        <div class="file-row">
+          <input class="native-file-input" type="file" id="mapInput" accept=".json,.png,application/json,image/png" />
+          <label class="file-picker" for="mapInput"><i class="fa-solid fa-map"></i> 上传地图</label>
+          <span id="mapFileName" class="file-name">未选择地图</span>
+          <button id="deleteMapBtn" class="icon-btn" title="删除地图" aria-label="删除地图" disabled><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <div id="mapStatus" class="map-status">未加载地图</div>
+      <div class="map-scale-row">
+        <label for="mapScaleRange">地图缩放</label>
+        <input id="mapScaleRange" type="range" min="0.1" max="100" step="0.1" value="1" disabled />
+        <input id="mapScaleInput" type="number" min="0.1" max="100" step="0.1" value="1" disabled />
+        <span>x</span>
+      </div>
+      <div class="map-scale-row">
+        <label for="mapDimRange">地图压暗</label>
+        <input id="mapDimRange" type="range" min="0" max="80" step="1" value="32" disabled />
+        <span id="mapDimValue" class="map-dim-value">32%</span>
+      </div>
+    </div>
+  </section>
   <div class="urdf-header">
     <label><strong>URDF / JSON 编辑</strong></label>
     <div id="status" class="status-badge">状态：等待操作</div>
@@ -98,14 +173,21 @@
   <div id="jointControls"></div>
   
 </div>
-<div id="viewer"></div>
-<div class="view-buttons">
-  <button data-view="top">顶视图</button>
-  <button data-view="bottom">底视图</button>
-  <button data-view="front">前视图</button>
-  <button data-view="back">后视图</button>
-  <button data-view="left">左视图</button>
-  <button data-view="right">右视图</button>
+<div id="viewerShell">
+  <div id="viewer"></div>
+  <div class="viewer-toolbar">
+    <button id="showSidebarBtn" class="icon-btn" title="展开侧栏" aria-label="展开侧栏" hidden><i class="fa-solid fa-angles-right"></i></button>
+    <button id="fullscreenBtn" class="icon-btn" title="全屏显示" aria-label="全屏显示"><i class="fa-solid fa-expand"></i></button>
+  </div>
+  <div class="view-buttons">
+    <button data-view="map">地图视图</button>
+    <button data-view="top">顶视图</button>
+    <button data-view="bottom">底视图</button>
+    <button data-view="front">前视图</button>
+    <button data-view="back">后视图</button>
+    <button data-view="left">左视图</button>
+    <button data-view="right">右视图</button>
+  </div>
 </div>
 <div id="jointEditor">
   <div class="editor-body">
@@ -237,7 +319,24 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   function setStatus(text){ statusEl.textContent='状态：'+text; }
 
   const viewer=document.getElementById('viewer');
+  const viewerShell=document.getElementById('viewerShell');
+  const fileModeWarning=document.getElementById('fileModeWarning');
+  const collapseSidebarBtn=document.getElementById('collapseSidebarBtn');
+  const showSidebarBtn=document.getElementById('showSidebarBtn');
+  const fullscreenBtn=document.getElementById('fullscreenBtn');
+  const assetPanel=document.getElementById('assetPanel');
+  const assetPanelBody=document.getElementById('assetPanelBody');
+  const assetToggleBtn=document.getElementById('assetToggleBtn');
   const glbInput=document.getElementById('glbInput');
+  const modelFileName=document.getElementById('modelFileName');
+  const mapInput=document.getElementById('mapInput');
+  const mapFileName=document.getElementById('mapFileName');
+  const deleteMapBtn=document.getElementById('deleteMapBtn');
+  const mapStatus=document.getElementById('mapStatus');
+  const mapScaleRange=document.getElementById('mapScaleRange');
+  const mapScaleInput=document.getElementById('mapScaleInput');
+  const mapDimRange=document.getElementById('mapDimRange');
+  const mapDimValue=document.getElementById('mapDimValue');
   const applyBtn=document.getElementById('applyBtn');
   const refreshBtn=document.getElementById('refreshBtn');
   const selfCheckBtn=document.getElementById('selfCheckBtn');
@@ -246,16 +345,19 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   const jsonInput=document.getElementById('jsonInput');
   const jointControls=document.getElementById('jointControls');
   const clearAllBtn=document.getElementById('clearAllBtn');
+  if(location.protocol==='file:'){
+    fileModeWarning.classList.add('active');
+    setStatus('本地文件模式会拦截部分资源');
+  }
   
 
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x222222);
-  const sidebarWidth=500;
   const renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(window.devicePixelRatio?window.devicePixelRatio:1);
   viewer.appendChild(renderer.domElement);
 
-  const camera=new THREE.PerspectiveCamera(45,(window.innerWidth-sidebarWidth)/window.innerHeight,0.1,2000);
+  const camera=new THREE.PerspectiveCamera(45,1,0.1,2000);
   camera.position.set(3,3,5);
   camera.up.set(0,0,1); // Set Z-axis as up direction
 
@@ -264,9 +366,55 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   const d2=new THREE.DirectionalLight(0xffffff,0.8); d2.position.set(-5,5,-5); scene.add(d2);
 
   let controls=new OrbitControls(camera,renderer.domElement);
-  function resizeRenderer(){ const w=Math.max(window.innerWidth-sidebarWidth,100); const h=Math.max(window.innerHeight,100); renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  function resizeRenderer(){ const w=Math.max(viewer.clientWidth,1); const h=Math.max(viewer.clientHeight,1); renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   window.addEventListener('resize',resizeRenderer);
+  if(window.ResizeObserver){ new ResizeObserver(()=>{ resizeRenderer(); }).observe(viewer); }
   resizeRenderer();
+
+  function setSidebarCollapsed(collapsed){
+    document.body.classList.toggle('sidebar-collapsed',collapsed);
+    showSidebarBtn.hidden=!collapsed;
+    requestAnimationFrame(resizeRenderer);
+  }
+
+  function setAssetPanelCollapsed(collapsed){
+    assetPanel.classList.toggle('collapsed',collapsed);
+    assetPanelBody.hidden=collapsed;
+    const label=collapsed?'展开资源区':'收起资源区';
+    assetToggleBtn.title=label;
+    assetToggleBtn.setAttribute('aria-label',label);
+    assetToggleBtn.innerHTML=collapsed?'<i class="fa-solid fa-chevron-down"></i>':'<i class="fa-solid fa-chevron-up"></i>';
+  }
+
+  function updateFullscreenButton(){
+    const active=document.fullscreenElement===viewerShell || viewerShell.classList.contains('maximized');
+    const label=active?'退出全屏':'全屏显示';
+    fullscreenBtn.title=label;
+    fullscreenBtn.setAttribute('aria-label',label);
+    fullscreenBtn.innerHTML=active?'<i class="fa-solid fa-compress"></i>':'<i class="fa-solid fa-expand"></i>';
+  }
+
+  function setViewerMaximized(maximized){
+    viewerShell.classList.toggle('maximized',maximized);
+    updateFullscreenButton();
+    requestAnimationFrame(resizeRenderer);
+  }
+
+  collapseSidebarBtn.addEventListener('click',()=>{ setSidebarCollapsed(true); });
+  showSidebarBtn.addEventListener('click',()=>{ setSidebarCollapsed(false); });
+  assetToggleBtn.addEventListener('click',()=>{ setAssetPanelCollapsed(!assetPanelBody.hidden); });
+  fullscreenBtn.addEventListener('click',async()=>{
+    try{
+      if(document.fullscreenElement){ await document.exitFullscreen(); }
+      else if(viewerShell.classList.contains('maximized')){ setViewerMaximized(false); }
+      else if(viewerShell.requestFullscreen){ await viewerShell.requestFullscreen(); }
+      else { setViewerMaximized(true); }
+    }catch(err){
+      setViewerMaximized(!viewerShell.classList.contains('maximized'));
+    }
+  });
+  document.addEventListener('fullscreenchange',()=>{ updateFullscreenButton(); requestAnimationFrame(resizeRenderer); });
+  updateFullscreenButton();
 
   const loader=new GLTFLoader();
   const dracoLoader=new DRACOLoader(); 
@@ -276,6 +424,9 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   let currentModel=null;
   let gridHelper=null;
   let axesHelper=null;
+  let mapPlane=null;
+  let mapShadePlane=null;
+  let currentMap=null;
 
   // Initialize default grid and axes (Z-up orientation)
   gridHelper=new THREE.GridHelper(10,10,0x888888,0x444444);
@@ -287,22 +438,251 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   function clearModel(){ if(currentModel){ scene.remove(currentModel); currentModel=null; } }
 
   function updateHelpers(){
-    if(!currentModel) return;
     if(gridHelper){ scene.remove(gridHelper); gridHelper=null; }
     if(axesHelper){ scene.remove(axesHelper); axesHelper=null; }
-    const box=new THREE.Box3().setFromObject(currentModel);
+    const box=new THREE.Box3();
+    if(currentModel) box.expandByObject(currentModel);
+    if(mapPlane && currentMap) expandBoundsByMap(box);
+    if(box.isEmpty()) return;
     const size=box.getSize(new THREE.Vector3());
-    const maxDim=Math.max(size.x,size.y,size.z);
-    gridHelper=new THREE.GridHelper(maxDim*2,Math.max(2,Math.floor(maxDim/2)),0x888888,0x444444);
+    const maxDim=Math.max(size.x,size.y,size.z,1);
+    const gridSize=mapPlane&&currentMap ? Math.max(size.x,size.y,1) : maxDim*2;
+    const gridDivisions=mapPlane&&currentMap ? Math.min(120,Math.max(10,Math.round(gridSize))) : Math.max(2,Math.floor(maxDim/2));
+    const gridCenter=box.getCenter(new THREE.Vector3());
+    gridHelper=new THREE.GridHelper(gridSize,gridDivisions,0x8a8a8a,0x575757);
     gridHelper.rotation.x=Math.PI/2; // Rotate to XY plane (Z-up)
+    gridHelper.position.set(gridCenter.x,gridCenter.y,mapPlane&&currentMap ? mapPlane.position.z+0.01 : 0);
+    gridHelper.material.transparent=true;
+    gridHelper.material.opacity=mapPlane&&currentMap ? 0.28 : 1;
     scene.add(gridHelper);
     axesHelper=new THREE.AxesHelper(maxDim*1.2);
+    axesHelper.position.set(gridCenter.x,gridCenter.y,0);
     scene.add(axesHelper);
   }
 
   
 
-  function fitCameraToScene(){ if(!currentModel) return; const box=new THREE.Box3().setFromObject(currentModel); const size=box.getSize(new THREE.Vector3()); const center=box.getCenter(new THREE.Vector3()); const maxDim=Math.max(size.x,size.y,size.z); const fov=camera.fov*(Math.PI/180); let cameraDist=Math.abs(maxDim/(2*Math.tan(fov/2)))*1.5; camera.position.set(center.x+cameraDist*0.5,center.y+cameraDist*0.5,center.z+cameraDist); camera.lookAt(center); controls.target.copy(center); controls.update(); updateHelpers(); }
+  function fitCameraToScene(){
+    if(!currentModel && !mapPlane) return;
+    layoutMapPlane();
+    const box=new THREE.Box3();
+    if(currentModel) box.expandByObject(currentModel);
+    if(mapPlane && currentMap) expandBoundsByMap(box);
+    const size=box.getSize(new THREE.Vector3());
+    const center=box.getCenter(new THREE.Vector3());
+    const maxDim=Math.max(size.x,size.y,size.z);
+    const fov=camera.fov*(Math.PI/180);
+    let cameraDist=Math.abs(maxDim/(2*Math.tan(fov/2)))*1.5;
+    cameraDist=Math.max(cameraDist,1);
+    camera.position.set(center.x+cameraDist*0.5,center.y+cameraDist*0.5,center.z+cameraDist);
+    camera.lookAt(center);
+    controls.target.copy(center);
+    controls.update();
+    updateHelpers();
+  }
+
+  function expandBoundsByMap(box){
+    const size=getMapSize(currentMap);
+    const halfDiagonal=Math.hypot(size.width,size.height)/2;
+    const z=mapPlane.position.z;
+    box.expandByPoint(new THREE.Vector3(currentMap.center.x-halfDiagonal,currentMap.center.y-halfDiagonal,z));
+    box.expandByPoint(new THREE.Vector3(currentMap.center.x+halfDiagonal,currentMap.center.y+halfDiagonal,z));
+  }
+
+  function setMapStatus(text){ mapStatus.textContent=text; }
+
+  function getMapAnchor(){
+    if(!currentModel) return { center:new THREE.Vector3(0,0,0), z:-0.02, span:10 };
+    const box=new THREE.Box3().setFromObject(currentModel);
+    const size=box.getSize(new THREE.Vector3());
+    const center=box.getCenter(new THREE.Vector3());
+    const maxDim=Math.max(size.x,size.y,size.z,1);
+    return { center, z:box.min.z-Math.max(maxDim*0.01,0.02), span:maxDim*2 };
+  }
+
+  function getMapSize(map){
+    if(map.displaySize){
+      const scale=Number(map.scale)||1;
+      return { width:map.displaySize.width*scale, height:map.displaySize.height*scale };
+    }
+    const metadata=map.metadata||{};
+    const width=Number(metadata.width);
+    const height=Number(metadata.height);
+    const resolution=Number(metadata.resolution);
+    if(width>0 && height>0 && resolution>0){
+      return { width:width*resolution, height:height*resolution };
+    }
+    const imageWidth=map.imageWidth||1;
+    const imageHeight=map.imageHeight||1;
+    const aspect=imageWidth/imageHeight;
+    const span=getMapAnchor().span;
+    return aspect>=1 ? { width:span, height:span/aspect } : { width:span*aspect, height:span };
+  }
+
+  function layoutMapPlane(){
+    if(!mapPlane || !currentMap) return;
+    const anchor=getMapAnchor();
+    const size=getMapSize(currentMap);
+    mapPlane.geometry.dispose();
+    mapPlane.geometry=new THREE.PlaneGeometry(size.width,size.height);
+    mapPlane.position.set(currentMap.center.x,currentMap.center.y,anchor.z);
+    mapPlane.rotation.set(0,0,Number(currentMap.metadata&&currentMap.metadata.yaw)||0);
+    mapPlane.updateMatrixWorld();
+    if(mapShadePlane){
+      mapShadePlane.geometry.dispose();
+      mapShadePlane.geometry=new THREE.PlaneGeometry(size.width,size.height);
+      mapShadePlane.position.set(currentMap.center.x,currentMap.center.y,anchor.z+0.001);
+      mapShadePlane.rotation.copy(mapPlane.rotation);
+      mapShadePlane.updateMatrixWorld();
+    }
+  }
+
+  function clearMapLayer(){
+    if(mapPlane){
+      scene.remove(mapPlane);
+      mapPlane.geometry.dispose();
+      mapPlane.material.dispose();
+      mapPlane=null;
+    }
+    if(mapShadePlane){
+      scene.remove(mapShadePlane);
+      mapShadePlane.geometry.dispose();
+      mapShadePlane.material.dispose();
+      mapShadePlane=null;
+    }
+    if(currentMap){ currentMap.texture.dispose(); currentMap=null; }
+    deleteMapBtn.disabled=true;
+    mapScaleRange.disabled=true;
+    mapScaleInput.disabled=true;
+    mapDimRange.disabled=true;
+    mapScaleRange.value=1;
+    mapScaleInput.value=1;
+    mapDimRange.value=32;
+    mapDimValue.textContent='32%';
+  }
+
+  function describeMap(map){
+    const size=getMapSize(map);
+    const sizeText=`${size.width.toFixed(2)} x ${size.height.toFixed(2)}`;
+    const scaleText=(Number(map.scale)||1).toFixed(1).replace(/\.0$/,'');
+    return `${map.name} 已加载，底板尺寸 ${sizeText}，缩放 ${scaleText}x`;
+  }
+
+  function installMapTexture(texture, options){
+    clearMapLayer();
+    texture.colorSpace=THREE.SRGBColorSpace;
+    const anchor=getMapAnchor();
+    currentMap={
+      texture,
+      name:options.name,
+      metadata:options.metadata||null,
+      center:anchor.center.clone(),
+      displaySize:null,
+      scale:1,
+      dim:0.32,
+      imageWidth:texture.image&&texture.image.naturalWidth||texture.image&&texture.image.width||1,
+      imageHeight:texture.image&&texture.image.naturalHeight||texture.image&&texture.image.height||1
+    };
+    currentMap.displaySize=getMapSize(currentMap);
+    const material=new THREE.MeshBasicMaterial({ map:texture, side:THREE.DoubleSide, depthTest:true, depthWrite:true });
+    mapPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),material);
+    mapPlane.name='UploadedMapPlane';
+    mapPlane.renderOrder=-1;
+    mapPlane.frustumCulled=false;
+    scene.add(mapPlane);
+    const shadeMaterial=new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.DoubleSide, transparent:true, opacity:currentMap.dim, depthTest:true, depthWrite:false });
+    mapShadePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),shadeMaterial);
+    mapShadePlane.name='UploadedMapShade';
+    mapShadePlane.renderOrder=0;
+    mapShadePlane.frustumCulled=false;
+    scene.add(mapShadePlane);
+    layoutMapPlane();
+    deleteMapBtn.disabled=false;
+    mapScaleRange.disabled=false;
+    mapScaleInput.disabled=false;
+    mapDimRange.disabled=false;
+    mapScaleRange.value=currentMap.scale;
+    mapScaleInput.value=currentMap.scale;
+    mapDimRange.value=Math.round(currentMap.dim*100);
+    mapDimValue.textContent=`${Math.round(currentMap.dim*100)}%`;
+    setMapStatus(describeMap(currentMap));
+    updateHelpers();
+    fitCameraToScene();
+  }
+
+  function setMapScale(value, fit){
+    if(!currentMap) return;
+    let scale=parseFloat(value);
+    if(!Number.isFinite(scale)) scale=1;
+    scale=Math.max(0.1,Math.min(100,scale));
+    currentMap.scale=scale;
+    mapScaleRange.value=scale;
+    mapScaleInput.value=scale;
+    layoutMapPlane();
+    updateHelpers();
+    setMapStatus(describeMap(currentMap));
+    if(fit) fitCameraToScene();
+  }
+
+  function setMapDim(value){
+    if(!currentMap || !mapShadePlane) return;
+    let percent=parseFloat(value);
+    if(!Number.isFinite(percent)) percent=32;
+    percent=Math.max(0,Math.min(80,percent));
+    currentMap.dim=percent/100;
+    mapDimRange.value=percent;
+    mapDimValue.textContent=`${Math.round(percent)}%`;
+    mapShadePlane.material.opacity=currentMap.dim;
+  }
+
+  async function installMapBlob(blob, options){
+    const image=await createImageBitmap(blob);
+    const canvas=document.createElement('canvas');
+    canvas.width=image.width;
+    canvas.height=image.height;
+    const context=canvas.getContext('2d');
+    context.drawImage(image,0,0);
+    const texture=new THREE.CanvasTexture(canvas);
+    texture.minFilter=THREE.LinearFilter;
+    texture.magFilter=THREE.LinearFilter;
+    texture.generateMipmaps=false;
+    texture.needsUpdate=true;
+    installMapTexture(texture,options);
+    setStatus('地图已加载');
+  }
+
+  function getEmbeddedMap(json){
+    const entities=Array.isArray(json.mapfileEntitys)?json.mapfileEntitys:[];
+    const entity=entities.find(item=>item&&item.content&&Array.isArray(item.content.data));
+    if(!entity) throw new Error('JSON 中未找到内嵌地图图片');
+    const record=entity.record||{};
+    return {
+      bytes:new Uint8Array(entity.content.data),
+      name:record.alias||record.name||'JSON 地图',
+      metadata:{
+        width:Number(record.width)||0,
+        height:Number(record.height)||0,
+        resolution:Number(record.resolution)||0,
+        yaw:Number(record.origin&&record.origin.yaw)||0
+      }
+    };
+  }
+
+  async function loadMapFile(file){
+    const lowerName=file.name.toLowerCase();
+    if(file.type==='image/png' || lowerName.endsWith('.png')){
+      await installMapBlob(file,{ name:file.name, metadata:null });
+      return;
+    }
+    if(file.type==='application/json' || lowerName.endsWith('.json')){
+      const json=JSON.parse(await file.text());
+      const embeddedMap=getEmbeddedMap(json);
+      const blob=new Blob([embeddedMap.bytes],{type:'image/png'});
+      await installMapBlob(blob,{ name:embeddedMap.name, metadata:embeddedMap.metadata });
+      return;
+    }
+    throw new Error('仅支持 JSON 或 PNG 地图文件');
+  }
 
   function tryParseGLB(arrayBuffer){ loader.parse(arrayBuffer,'',gltf=>{ clearModel(); currentModel=gltf.scene; 
     // Convert Y-up model to Z-up coordinate system
@@ -314,7 +694,36 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     if(shouldGenerate){ const autoJoints=generateJointsFromModel(); urdfData={joints:autoJoints}; jsonInput.value=JSON.stringify({urdf:{joints:autoJoints}},null,2); setupJointsFromURDF(false); }
     setStatus('GLB 模型加载完成');
   },err=>{ console.error('parse error',err); setStatus('GLB 解析失败'); }); }
-  glbInput.addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; const reader=new FileReader(); reader.onload=ev=>{ tryParseGLB(ev.target.result); }; reader.readAsArrayBuffer(f); });
+  glbInput.addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; modelFileName.textContent=f.name; const reader=new FileReader(); reader.onload=ev=>{ tryParseGLB(ev.target.result); }; reader.readAsArrayBuffer(f); });
+
+  mapInput.addEventListener('change',async e=>{
+    const file=e.target.files[0];
+    if(!file) return;
+    mapFileName.textContent=file.name;
+    setMapStatus(`${file.name} 读取中...`);
+    try{
+      await loadMapFile(file);
+    }catch(err){
+      setMapStatus('地图加载失败: '+err.message);
+      setStatus('地图加载失败');
+    }finally{
+      mapInput.value='';
+    }
+  });
+
+  deleteMapBtn.addEventListener('click',()=>{
+    if(!currentMap) return;
+    clearMapLayer();
+    mapFileName.textContent='未选择地图';
+    setMapStatus('未加载地图');
+    setStatus('地图已删除');
+    fitCameraToScene();
+  });
+
+  mapScaleRange.addEventListener('input',()=>{ setMapScale(mapScaleRange.value,false); });
+  mapScaleRange.addEventListener('change',()=>{ fitCameraToScene(); });
+  mapScaleInput.addEventListener('change',()=>{ setMapScale(mapScaleInput.value,true); });
+  mapDimRange.addEventListener('input',()=>{ setMapDim(mapDimRange.value); });
 
   let urdfData=null, jointMap={};
   let highlightedJoint=null;
@@ -571,6 +980,19 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
 
   document.querySelectorAll('.view-buttons button').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      if(btn.dataset.view==='map'){
+        if(!mapPlane || !currentMap) return;
+        const size=getMapSize(currentMap);
+        const maxDim=Math.max(size.width,size.height,1);
+        const fov=camera.fov * (Math.PI/180);
+        const distance=maxDim / (2*Math.tan(fov/2)) * 1.2;
+        const center=new THREE.Vector3(currentMap.center.x,currentMap.center.y,mapPlane.position.z);
+        camera.position.set(center.x,center.y,center.z+distance);
+        camera.lookAt(center);
+        controls.target.copy(center);
+        controls.update();
+        return;
+      }
       if(!currentModel) return;
       const box=new THREE.Box3().setFromObject(currentModel);
       const size=box.getSize(new THREE.Vector3());
