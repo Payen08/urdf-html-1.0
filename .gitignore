@@ -4,3 +4,10 @@
 
 # Node.js
 node_modules/
+
+# Local interface references and test assets (not part of the web app)
+grpc-proto-definition-main/
+baichuan-al-simulation-devices-for-arm-main/
+机械臂控制功能系统.md
+本地坐标系管理.md
+测试glb/
