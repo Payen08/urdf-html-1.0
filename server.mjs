@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT) || 8000;
-const defaultGrpcUiUrl = 'http://10.10.28.124:6700/grpcui/';
+const defaultGrpcUiUrl = 'http://172.31.22.123:6700/grpcui/';
 const serviceName = 'baichuan.proto.api.al.robotics.arms.GeneralArmsControlService';
 const methodName = 'GetLatestArmJointStates';
+const grpcUiSessionTtlMs = 5 * 60 * 1000;
+const grpcUiSessions = new Map();
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -23,6 +25,24 @@ function jsonResponse(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+async function getGrpcUiSession(baseUrl, forceRefresh = false) {
+  const cacheKey = baseUrl.href;
+  const cached = grpcUiSessions.get(cacheKey);
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached;
+
+  const pageResponse = await fetch(baseUrl, { signal: AbortSignal.timeout(10000) });
+  if (!pageResponse.ok) throw new Error(`grpcui 页面返回 HTTP ${pageResponse.status}`);
+  const setCookie = pageResponse.headers.get('set-cookie') || '';
+  const tokenMatch = setCookie.match(/_grpcui_csrf_token=([^;]+)/);
+  if (!tokenMatch) throw new Error('grpcui 未返回 CSRF Token');
+  const session = {
+    csrfToken: tokenMatch[1],
+    expiresAt: Date.now() + grpcUiSessionTtlMs
+  };
+  grpcUiSessions.set(cacheKey, session);
+  return session;
+}
+
 async function getLatestArmJointStates(grpcUiUrl, armIndex) {
   const baseUrl = new URL(grpcUiUrl || defaultGrpcUiUrl);
   if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
@@ -30,34 +50,35 @@ async function getLatestArmJointStates(grpcUiUrl, armIndex) {
   }
   if (!baseUrl.pathname.endsWith('/')) baseUrl.pathname += '/';
 
-  const pageResponse = await fetch(baseUrl, { signal: AbortSignal.timeout(10000) });
-  if (!pageResponse.ok) throw new Error(`grpcui 页面返回 HTTP ${pageResponse.status}`);
-  const setCookie = pageResponse.headers.get('set-cookie') || '';
-  const tokenMatch = setCookie.match(/_grpcui_csrf_token=([^;]+)/);
-  if (!tokenMatch) throw new Error('grpcui 未返回 CSRF Token');
-  const csrfToken = tokenMatch[1];
-
   const invokeUrl = new URL(`invoke/${serviceName}.${methodName}`, baseUrl);
-  const invokeResponse = await fetch(invokeUrl, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'cookie': `_grpcui_csrf_token=${csrfToken}`,
-      'x-grpcui-csrf-token': csrfToken
-    },
-    body: JSON.stringify({
-      timeout_seconds: 10,
-      metadata: [],
-      data: [{ armIndex }]
-    }),
-    signal: AbortSignal.timeout(15000)
-  });
-  if (!invokeResponse.ok) throw new Error(`grpcui 调用返回 HTTP ${invokeResponse.status}`);
-  const result = await invokeResponse.json();
-  if (result.error) throw new Error(result.error.message || String(result.error));
-  const message = result.responses?.find(item => !item.isError)?.message;
-  if (!Array.isArray(message?.joints)) throw new Error('grpcui 响应中没有 joints 数据');
-  return message.joints;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { csrfToken } = await getGrpcUiSession(baseUrl, attempt > 0);
+    const invokeResponse = await fetch(invokeUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'cookie': `_grpcui_csrf_token=${csrfToken}`,
+        'x-grpcui-csrf-token': csrfToken
+      },
+      body: JSON.stringify({
+        timeout_seconds: 10,
+        metadata: [],
+        data: [{ armIndex }]
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if ((invokeResponse.status === 401 || invokeResponse.status === 403) && attempt === 0) {
+      grpcUiSessions.delete(baseUrl.href);
+      continue;
+    }
+    if (!invokeResponse.ok) throw new Error(`grpcui 调用返回 HTTP ${invokeResponse.status}`);
+    const result = await invokeResponse.json();
+    if (result.error) throw new Error(result.error.message || String(result.error));
+    const message = result.responses?.find(item => !item.isError)?.message;
+    if (!Array.isArray(message?.joints)) throw new Error('grpcui 响应中没有 joints 数据');
+    return message.joints;
+  }
+  throw new Error('grpcui 会话已失效');
 }
 
 async function serveStatic(requestUrl, response) {

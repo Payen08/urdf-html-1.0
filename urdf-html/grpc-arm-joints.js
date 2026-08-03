@@ -188,7 +188,10 @@ async function getLatestArmJointStatesViaLocalProxy(grpcUiUrl, armIndex, options
   });
   const result = await response.json().catch(()=>({}));
   if (!response.ok) {
-    throw new Error(result.error || `本地接口返回 HTTP ${response.status}`);
+    if (response.status === 404) {
+      throw new Error('当前站点未运行 grpcui 代理；请通过 node server.mjs 打开本地页面');
+    }
+    throw new Error(result.error || `grpcui 代理返回 HTTP ${response.status}`);
   }
   if (!Array.isArray(result.joints)) throw new Error('本地接口未返回 joints 数据');
   return result.joints;

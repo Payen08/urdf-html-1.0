@@ -18,6 +18,30 @@ http://127.0.0.1:8000/?model=测试glb/mcr0717.glb&urdf=测试glb/urdf.json
 
 GLTFLoader 会清洗 Blender 的节点名称，例如 `joint6.001` 会变成 `joint6001`。页面会自动将唯一的数字后缀节点匹配到 JSON 中的 `joint6`；也可通过 `modelNodeName` 显式指定模型节点。
 
+## GitHub Pages 与关节接口
+
+GitHub Pages 只托管静态文件，不会运行项目中的 `server.mjs`，因此不能使用 `/api/latest-arm-joints` 代理普通 grpcui 页面。内网 HTTP grpcui 也会受到 HTTPS 混合内容、CORS 和 CSRF 限制。
+
+- 使用 grpcui 地址时，请运行 `node server.mjs` 并从 `http://127.0.0.1:8000` 打开页面。
+- GitHub Pages 上仍可手动粘贴 grpcui 的 Response Data。
+- 如果已有真正支持 HTTPS、CORS 和 gRPC-Web 的网关，可填写该网关地址直接请求；不要填写以 `/grpcui/` 结尾的页面地址。
+
+## 模型上传
+
+- `选择文件`：可选择 GLB、GLTF、URDF 或 ZIP，页面会根据文件类型自动识别加载方式；也可以一次选择 URDF 和同目录资源。
+- `选择文件夹`：用于包含多级 Mesh、纹理和材质目录的完整 URDF 文件包。
+
+URDF 文件或文件包会解析：
+
+- `link`、`joint`、`origin`、`axis`、`limit`
+- `visual`、`collision`、`inertial`
+- box、cylinder、sphere 几何体
+- STL、DAE、OBJ/MTL、GLB/GLTF Mesh，以及对应纹理和材质
+
+生成的模型使用 URDF 原生 Z-up 坐标，并按 `parent link → joint pivot → child link` 建立运动链。fixed joint 保留在结构和 JSON 数据中但不生成控制项；revolute / continuous joint 使用弧度关节上报，prismatic joint 使用原始线位移。
+
+右侧关节控制支持 `° / rad` 显示切换。切换只改变旋转关节的滑杆、步长和输入框显示，内部姿态计算及 prismatic 线位移单位不变。
+
 ## 坐标配置
 
 关节上报值按弧度、右手系处理。`axis` 所属坐标系由 `rotationSpace` 决定。

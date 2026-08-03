@@ -15,6 +15,14 @@
   </script>
   <style>
     body { margin: 0; display: flex; height: 100vh; overflow:hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, Pingfang; background:#222; }
+    .toast-container { position:fixed; top:18px; left:50%; z-index:6000; display:grid; gap:8px; width:min(420px,calc(100vw - 32px)); transform:translateX(-50%); pointer-events:none; }
+    .app-toast { display:flex; align-items:flex-start; gap:9px; padding:11px 13px; border:1px solid #ddd6fe; border-radius:11px; color:#3f3f46; background:#fff; box-shadow:0 12px 30px rgba(24,24,27,.18); font-size:12px; line-height:1.45; animation:toast-in .18s ease-out; }
+    .app-toast i { margin-top:2px; color:var(--ui-primary); }
+    .app-toast.error { border-color:#fecaca; color:#991b1b; background:#fff7f7; }
+    .app-toast.error i { color:#dc2626; }
+    .app-toast.success { border-color:#bbf7d0; color:#166534; background:#f7fff9; }
+    .app-toast.success i { color:#16a34a; }
+    @keyframes toast-in { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
     #sidebar { flex:0 0 500px; width:500px; background: #f6f7f9; margin: 16px; box-sizing: border-box; overflow: auto; border-right: 1px solid #ddd; border-radius: 16px; padding:8px 16px; opacity:1; transition:flex-basis 0.22s ease, width 0.22s ease, margin 0.22s ease, padding 0.22s ease, opacity 0.18s ease; }
     body.sidebar-collapsed #sidebar { flex-basis:0; width:0; margin-left:0; margin-right:0; padding-left:0; padding-right:0; border:0; opacity:0; pointer-events:none; }
     #viewerShell { min-width:0; flex:1; position:relative; background:#222; }
@@ -43,6 +51,20 @@
     .file-picker { flex:none; display:flex; align-items:center; justify-content:center; gap:6px; height:34px; min-width:104px; box-sizing:border-box; margin:0; padding:0 10px; border-radius:8px; color:#fff; background:#2F28A3; cursor:pointer; font-size:12px; }
     .file-picker:hover { background:#241F7D; }
     .file-name { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#333; font-size:12px; }
+    .model-upload-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .model-upload-actions .file-picker {
+      min-width:0;
+      border:1px solid var(--ui-border);
+      color:#52525b;
+      background:#fff;
+      box-shadow:0 1px 3px rgba(24,24,27,.05);
+    }
+    .model-upload-actions .file-picker i { color:var(--ui-primary); }
+    .model-upload-actions .file-picker:hover {
+      border-color:#d9d2fb;
+      color:#5747b9;
+      background:#faf9ff;
+    }
     .json-container { position: relative; margin-top: 4px; }
     textarea { width: 100%; height: 400px; font-family: Pingfang; font-size: 13px; color: #333; box-sizing: border-box; border: 1px solid #E8E8E8; border-radius: 8px; white-space: pre; resize: vertical; }
     .json-buttons { position: absolute; bottom: 8px; left: 8px; display: flex; gap: 4px; }
@@ -61,6 +83,59 @@
     .rpc-field { display:grid; gap:5px; min-width:0; }
     .rpc-field label { margin:0; color:#555; font-size:12px; font-weight:600; }
     .rpc-field input { min-width:0; height:34px; box-sizing:border-box; padding:4px 8px; border:1px solid #E8E8E8; border-radius:6px; }
+    .grpc-combobox { position:relative; min-width:0; }
+    .grpc-combobox #grpcBaseUrl { width:100%; padding-right:38px; }
+    .grpc-history-toggle {
+      position:absolute;
+      top:4px;
+      right:4px;
+      width:32px;
+      height:32px;
+      min-height:32px;
+      margin:0;
+      padding:0;
+      border:0;
+      border-radius:8px;
+      color:var(--ui-muted);
+      background:transparent;
+      box-shadow:none;
+    }
+    .grpc-history-toggle:hover { color:var(--ui-primary); background:#eceaf7; }
+    .grpc-history-menu {
+      position:absolute;
+      top:calc(100% + 5px);
+      left:0;
+      right:0;
+      z-index:20;
+      max-height:190px;
+      padding:5px;
+      overflow:auto;
+      border:1px solid var(--ui-border);
+      border-radius:10px;
+      background:#fff;
+      box-shadow:0 10px 28px rgba(24,24,27,.14);
+    }
+    .grpc-history-menu[hidden] { display:none; }
+    .grpc-history-option {
+      display:block;
+      width:100%;
+      min-height:34px;
+      margin:0;
+      padding:7px 9px;
+      overflow:hidden;
+      border:0;
+      border-radius:7px;
+      color:var(--ui-text);
+      background:transparent;
+      box-shadow:none;
+      font-size:11px;
+      text-align:left;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .grpc-history-option:hover,
+    .grpc-history-option:focus { color:var(--ui-primary); background:#f4f2ff; }
+    .grpc-history-empty { padding:9px; color:var(--ui-subtle); font-size:11px; text-align:center; }
     .rpc-result { min-height:18px; color:#666; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
     .joint-states-paste { height:110px; resize:vertical; padding:8px; }
     .file-mode-warning { display:none; margin:8px 0; padding:8px; background:#fff4e8; border:1px solid #ffd8ad; border-radius:8px; color:#8a4b08; font-size:12px; line-height:1.4; }
@@ -87,12 +162,20 @@
     .editor-body { flex:1; overflow:auto; padding-bottom: 8px; }
     .editor-footer { position: sticky; bottom: 0; background:#f6f7f9; padding-top: 8px; }
     #saveJointBtn { width:100%; height:40px; margin:0; background:#241F7D; color:#FFF; border: none; }
-    .axis-row { display:flex; gap:8px; align-items:center; margin-top:8px; }
-    .axis-item { flex:1; }
-    .axis-item label { display:block; margin:0 0 4px; font-size:12px; }
-    .axis-item input { width:100%; height:32px; padding:4px; box-sizing:border-box; border:1px solid #E8E8E8; border-radius:6px; pointer-events:auto; }
-    .urdf-header { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
-    .status-badge { padding:4px 8px; background:#F4F4F8; color:#241F7D; border-radius:8px; font-size:12px; }
+    .urdf-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; }
+    .urdf-header > label { flex:none; margin:0; white-space:nowrap; }
+    .status-badge {
+      min-width:0;
+      padding:4px 8px;
+      overflow:hidden;
+      border-radius:8px;
+      color:#241F7D;
+      background:#F4F4F8;
+      font-size:12px;
+      text-align:right;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     /* range styling */
     input[type="range"] { accent-color:#241F7D; }
     input[type="range"]::-webkit-slider-runnable-track { background:transparent; height:8px; border-radius:4px; border:none; }
@@ -286,6 +369,18 @@
       background:var(--ui-primary-soft);
     }
     #getLatestJointsBtn:hover { color:#fff; background:var(--ui-primary); box-shadow:0 5px 14px rgba(95,75,216,.2); }
+    .grpc-fetch-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    #toggleContinuousJointsBtn {
+      color:#4f3fc2;
+      border-color:#d9d2fb;
+      background:#fff;
+    }
+    #toggleContinuousJointsBtn.active {
+      color:#fff;
+      border-color:var(--ui-primary);
+      background:var(--ui-primary);
+      box-shadow:0 4px 12px rgba(95,75,216,.18);
+    }
     #applyJointStatesBtn {
       color:#fff;
       border-color:var(--ui-primary);
@@ -346,8 +441,26 @@
     }
     .editor-controls-title h4 { margin:0; color:var(--ui-text); font-size:15px; letter-spacing:-.015em; }
     .editor-controls-title p { margin:4px 0 0; color:var(--ui-muted); font-size:10px; }
-    .editor-controls-actions { display:flex; gap:6px; }
+    .editor-controls-actions { display:flex; align-items:center; gap:6px; }
     .editor-controls-actions .icon-btn { width:32px; height:32px; min-height:32px; }
+    .angle-unit-switch { display:flex; gap:2px; padding:2px; border-radius:10px; background:#f4f4f5; }
+    .angle-unit-btn {
+      flex:none;
+      width:34px;
+      height:28px;
+      min-height:28px;
+      padding:0;
+      border:0;
+      border-radius:8px;
+      color:#71717a;
+      background:transparent;
+      box-shadow:none;
+      font-size:10px;
+      font-weight:600;
+    }
+    .angle-unit-btn:last-child { width:38px; }
+    .angle-unit-btn:hover,
+    .angle-unit-btn.active { color:#5747b9; background:#fff; box-shadow:0 1px 4px rgba(24,24,27,.09); }
     #jointEditor #jointControls {
       max-height:388px;
       overflow:auto;
@@ -440,6 +553,23 @@
       font-size:11px;
     }
     .readonly-metric strong { color:var(--ui-primary); font-size:12px; font-variant-numeric:tabular-nums; }
+    .joint-diagnostics { margin-top:12px; border:1px solid #e5e0fb; border-radius:10px; background:#faf9ff; }
+    .joint-diagnostics summary { padding:11px; color:#5747b9; font-size:11px; font-weight:600; cursor:pointer; user-select:none; }
+    .joint-diagnostics-table-wrap { max-height:240px; overflow:auto; border-top:1px solid #e5e0fb; }
+    .joint-diagnostics table {
+      width:max-content;
+      min-width:100%;
+      border-collapse:collapse;
+      color:#52525b;
+      background:#fff;
+      font-size:10px;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+    }
+    .joint-diagnostics th,
+    .joint-diagnostics td { padding:7px 8px; border-right:1px solid #f0eef9; border-bottom:1px solid #f0eef9; text-align:left; }
+    .joint-diagnostics th { position:sticky; top:0; z-index:1; color:#71717a; background:#f7f5ff; font-weight:600; }
+    .joint-diagnostics-empty { padding:12px; color:#a1a1aa; font-size:10px; }
     .file-mode-warning {
       padding:11px 12px;
       border-color:#fed7aa;
@@ -462,6 +592,7 @@
   </style>
 </head>
 <body>
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 <div id="sidebar">
   <div class="sidebar-head">
     <h3>Payen Tools - GLB URDF JSON Viewer</h3>
@@ -480,12 +611,14 @@
     </div>
     <div id="assetPanelBody" class="asset-panel-body">
       <div class="upload-field">
-        <div class="upload-label">GLB / GLTF</div>
-        <div class="file-row">
-          <input class="native-file-input" type="file" id="glbInput" accept=".glb,.gltf" />
-          <label class="file-picker" for="glbInput"><i class="fa-solid fa-cube"></i> 上传模型</label>
-          <span id="modelFileName" class="file-name">未选择模型</span>
+        <div class="upload-label">上传GLB模型文件 /URDF 文件包</div>
+        <div class="model-upload-actions">
+          <input class="native-file-input" type="file" id="glbInput" accept=".glb,.gltf,.urdf,.xml,.zip,application/zip" multiple />
+          <label class="file-picker" for="glbInput"><i class="fa-solid fa-file-arrow-up"></i> 选择文件</label>
+          <input class="native-file-input" type="file" id="urdfFolderInput" webkitdirectory directory multiple />
+          <label class="file-picker" for="urdfFolderInput"><i class="fa-solid fa-folder-open"></i> 选择文件夹</label>
         </div>
+        <div id="modelFileName" class="file-name">未选择模型文件</div>
       </div>
       <div class="upload-field">
         <div class="upload-label">地图 JSON / PNG</div>
@@ -517,23 +650,11 @@
     <div id="status" class="status-badge">状态：等待操作</div>
   </div>
   <div class="json-container">
-    <textarea id="jsonInput">{
+    <textarea id="jsonInput" placeholder='{
   "urdf": {
-    "modelRotationDeg": {"x": 90, "y": 0, "z": 0},
-    "modelRotationOrder": "XYZ",
-    "joints": [
-      {
-        "name": "Bone",
-        "reportedJointName": "joint1",
-        "positionScale": 1,
-        "positionOffsetDeg": 0,
-        "rotationReference": "absolute",
-        "rotationSpace": "local",
-        "axis": {"x": 0, "y": 1, "z": 0}
-      }
-    ]
+    "joints": []
   }
-}</textarea>
+}'></textarea>
     <div class="json-buttons">
       <button id="clearJsonBtn"><i class="fa-solid fa-trash"></i> 清空</button>
     </div>
@@ -549,14 +670,26 @@
       <div class="rpc-grid">
         <div class="rpc-field">
           <label for="grpcBaseUrl">grpcui / gRPC-Web 地址</label>
-          <input id="grpcBaseUrl" type="url" placeholder="例如 http://192.168.1.10:8080">
+          <div id="grpcUrlCombobox" class="grpc-combobox">
+            <input id="grpcBaseUrl" type="url" placeholder="例如 http://192.168.1.10:8080"
+              autocomplete="off" role="combobox" aria-autocomplete="list"
+              aria-controls="grpcUrlHistoryMenu" aria-expanded="false">
+            <button id="grpcUrlHistoryToggle" class="grpc-history-toggle" type="button"
+              aria-label="选择历史地址" title="选择历史地址">
+              <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <div id="grpcUrlHistoryMenu" class="grpc-history-menu" role="listbox" hidden></div>
+          </div>
         </div>
         <div class="rpc-field">
           <label for="armIndex">机械臂编号</label>
           <input id="armIndex" type="number" min="0" step="1" value="0">
         </div>
       </div>
-      <button id="getLatestJointsBtn"><i class="fa-solid fa-cloud-arrow-down"></i> 获取最后更新的关节数据</button>
+      <div class="grpc-fetch-actions">
+        <button id="getLatestJointsBtn"><i class="fa-solid fa-cloud-arrow-down"></i> 单次获取</button>
+        <button id="toggleContinuousJointsBtn"><i class="fa-solid fa-play"></i> 持续获取</button>
+      </div>
       <div class="rpc-divider"><span>手动输入</span></div>
       <div class="rpc-field">
         <label for="jointStatesInput">gRPC UI Response Data</label>
@@ -590,6 +723,10 @@
         <h4>关节控制</h4>
       </div>
       <div class="editor-controls-actions">
+        <div class="angle-unit-switch" role="group" aria-label="关节角度单位">
+          <button id="angleDegBtn" class="angle-unit-btn active" type="button" aria-pressed="true">°</button>
+          <button id="angleRadBtn" class="angle-unit-btn" type="button" aria-pressed="false">rad</button>
+        </div>
         <button id="clearAllBtn" class="icon-btn" title="清空数值" aria-label="清空数值"><i class="fa-solid fa-eraser"></i></button>
       </div>
     </div>
@@ -599,26 +736,26 @@
     <h4>关节参数</h4>
     <label>关节名称</label>
     <input id="editorName" type="text" readonly>
-    <div class="axis-row">
-      <div class="axis-item">
-        <label>Axis X</label>
-        <select id="axisX"><option value="-1">-1</option><option value="0" selected>0</option><option value="1">1</option></select>
-      </div>
-      <div class="axis-item">
-        <label>Axis Y</label>
-        <select id="axisY"><option value="-1">-1</option><option value="0" selected>0</option><option value="1">1</option></select>
-      </div>
-      <div class="axis-item">
-        <label>Axis Z</label>
-        <select id="axisZ"><option value="-1">-1</option><option value="0" selected>0</option><option value="1">1</option></select>
-      </div>
-    </div>
+    <label for="axisDirection">Axis 方向</label>
+    <select id="axisDirection">
+      <option value="" disabled>请选择方向</option>
+      <option value="x:1">X　+1</option>
+      <option value="x:-1">X　-1</option>
+      <option value="y:1">Y　+1</option>
+      <option value="y:-1">Y　-1</option>
+      <option value="z:1">Z　+1</option>
+      <option value="z:-1">Z　-1</option>
+    </select>
     <label>上报关节名称</label>
     <input id="editorReportedName" type="text" placeholder="例如 joint1">
     <label>位置方向倍率</label>
     <input id="editorPositionScale" type="number" step="0.01" value="1">
     <label>零位偏移（度）</label>
     <input id="editorPositionOffset" type="number" step="0.1" value="0">
+    <div class="readonly-metric" title="按 Blender 标准 glTF +Y Up 导出规则换算">
+      <span>Blender 零位参考</span>
+      <strong id="editorBlenderOffsetHint">无需添加</strong>
+    </div>
     <div class="readonly-metric">
       <span>检测到的绑定轴角</span>
       <strong id="editorDetectedBindAngle">—</strong>
@@ -627,6 +764,10 @@
     <input id="editorParent" type="text">
     <label>子级</label>
     <input id="editorChild" type="text">
+    <details class="joint-diagnostics">
+      <summary>诊断信息</summary>
+      <div id="jointDiagnostics"></div>
+    </details>
   </div>
   <div class="editor-footer">
     <button id="saveJointBtn">保存关节</button>
@@ -638,7 +779,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 
 // 将THREE对象添加到全局作用域，以便现有代码可以访问
 window.THREE = THREE;
@@ -654,6 +800,67 @@ window.addEventListener('load',()=>{
     return;
   }
   const statusEl=document.getElementById('status');
+function showToast(message,type='info',duration=3200){
+  const container=document.getElementById('toastContainer');
+  if(!container) return;
+  const toast=document.createElement('div');
+  toast.className=`app-toast ${type}`;
+  toast.setAttribute('role',type==='error'?'alert':'status');
+  const icon=document.createElement('i');
+  icon.className=type==='error'
+    ?'fa-solid fa-circle-exclamation'
+    :type==='success'
+      ?'fa-solid fa-circle-check'
+      :'fa-solid fa-circle-info';
+  const text=document.createElement('span');
+  text.textContent=message;
+  toast.append(icon,text);
+  container.appendChild(toast);
+  setTimeout(()=>toast.remove(),duration);
+}
+function axisFromDirection(value){
+  const match=/^([xyz]):(-?1)$/.exec(String(value||''));
+  const axis={x:0,y:0,z:0};
+  if(match) axis[match[1]]=Number(match[2]);
+  return axis;
+}
+function directionFromAxis(axis={}){
+  const entries=['x','y','z'].map(key=>[key,Number(axis[key])||0]);
+  entries.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const [key,value]=entries[0];
+  return value?`${key}:${value>0?1:-1}`:'';
+}
+function updateBlenderOffsetHint(){
+  const hint=document.getElementById('editorBlenderOffsetHint');
+  if(!hint) return;
+  const gltfAxis=axisFromDirection(document.getElementById('axisDirection').value);
+  const offset=Number(document.getElementById('editorPositionOffset').value)||0;
+  if(Math.abs(offset)<1e-9){
+    hint.textContent='无需添加';
+    return;
+  }
+  // 标准 glTF 导出坐标换算：Blender (X,Y,Z) → glTF (X,Z,-Y)。
+  const blenderAxis={x:gltfAxis.x,y:-gltfAxis.z,z:gltfAxis.y};
+  const components=[
+    ['X',blenderAxis.x],
+    ['Y',blenderAxis.y],
+    ['Z',blenderAxis.z]
+  ].filter(([,value])=>Math.abs(value)>1e-9);
+  const formatDegrees=value=>{
+    const rounded=Number(value.toFixed(3));
+    return `${rounded>0?'+':''}${rounded}°`;
+  };
+  if(components.length===1 && Math.abs(Math.abs(components[0][1])-1)<1e-9){
+    const [axis,sign]=components[0];
+    hint.textContent=`本地 ${axis}：${formatDegrees(offset*sign)}`;
+    return;
+  }
+  if(!components.length){
+    hint.textContent='请先设置 Axis';
+    return;
+  }
+  hint.textContent=`本地轴 (${blenderAxis.x}, ${blenderAxis.y}, ${blenderAxis.z})：${formatDegrees(offset)}`;
+}
 function toggleJointEditor(show, name){
   const editor=document.getElementById('jointEditor');
   if(!show) return;
@@ -667,10 +874,8 @@ function toggleJointEditor(show, name){
     document.getElementById('editorPositionScale').value=j.positionScale;
     document.getElementById('editorPositionOffset').value=j.positionOffsetDeg;
     document.getElementById('editorDetectedBindAngle').textContent=`${Number(getAxisTwistDegrees(j).toFixed(3))}°`;
-    const axisOption=value=>Number(value)>0?'1':Number(value)<0?'-1':'0';
-    document.getElementById('axisX').value=axisOption(j.axis.x);
-    document.getElementById('axisY').value=axisOption(j.axis.y);
-    document.getElementById('axisZ').value=axisOption(j.axis.z);
+    document.getElementById('axisDirection').value=directionFromAxis(j.axis);
+    updateBlenderOffsetHint();
   }
 }
 
@@ -684,14 +889,10 @@ function focusJointInJson(name){
   const idx=text.search(re);
   if(idx===-1) return;
 
-  // 选中包含 name 的整行
+  // 定位包含 name 的整行，但不抢占编辑器焦点或选中文本。
+  // 否则用户继续调整右侧关节时，键盘输入会误写入 JSON。
   let start=text.lastIndexOf('\n', idx);
   start = start === -1 ? 0 : start + 1;
-  let end=text.indexOf('\n', idx);
-  end = end === -1 ? text.length : end;
-
-  ta.focus();
-  try { ta.setSelectionRange(start, end); } catch(e){}
 
   // 平滑滚动到可见位置
   const before=text.slice(0,start);
@@ -699,6 +900,16 @@ function focusJointInJson(name){
   const lineNum=(before.match(/\n/g)||[]).length;
   const ratio=Math.min(1, Math.max(0, (lineNum-3)/(totalLines||1)));
   ta.scrollTop = ratio * (ta.scrollHeight - ta.clientHeight);
+}
+
+function releaseJsonEditorFocus(){
+  const ta=document.getElementById('jsonInput');
+  if(!ta) return;
+  if(document.activeElement===ta) ta.blur();
+  if(ta.selectionStart!==ta.selectionEnd){
+    const caret=ta.selectionEnd;
+    try { ta.setSelectionRange(caret,caret); } catch(e){}
+  }
 }
 
 
@@ -711,55 +922,104 @@ function populateJointNames(){
 }
 
 function saveJointEdits(){
-  const name=document.getElementById('editorName').value;
-  if(!jointMap[name]) return;
-  jointMap[name].axis={
-    x:parseFloat(document.getElementById('axisX').value)||0,
-    y:parseFloat(document.getElementById('axisY').value)||0,
-    z:parseFloat(document.getElementById('axisZ').value)||0
-  };
-  jointMap[name].parentLinkName=document.getElementById('editorParent').value;
-  jointMap[name].childLinkName=document.getElementById('editorChild').value;
-  jointMap[name].reportedJointName=document.getElementById('editorReportedName').value.trim()||name;
-  const positionScale=parseFloat(document.getElementById('editorPositionScale').value);
-  const positionOffsetDeg=parseFloat(document.getElementById('editorPositionOffset').value);
-  jointMap[name].positionScale=Number.isFinite(positionScale)?positionScale:1;
-  jointMap[name].positionOffsetDeg=Number.isFinite(positionOffsetDeg)?positionOffsetDeg:0;
-  const joints=[];
-  for(const k in jointMap){
-    joints.push({
-      name:k,
-      modelNodeName:jointMap[k].modelNodeName!==k?jointMap[k].modelNodeName:undefined,
-      reportedJointName:jointMap[k].reportedJointName,
-      positionScale:jointMap[k].positionScale,
-      positionOffsetDeg:jointMap[k].positionOffsetDeg,
-      rotationReference:jointMap[k].rotationReference,
-      rotationSpace:jointMap[k].rotationSpace,
-      axis:jointMap[k].axis,
-      parentLinkName:jointMap[k].parentLinkName||jointMap[k].parent||'',
-      childLinkName:jointMap[k].childLinkName||jointMap[k].child||''
-    });
-    if(jointMap[k].axisHelper){
-      jointMap[k].node.remove(jointMap[k].axisHelper);
-      jointMap[k].axisHelper=null;
+  try{
+    const name=document.getElementById('editorName').value.trim();
+    if(!name) throw new Error('请先选择一个模型关节');
+    if(!jointMap[name]) throw new Error(`当前模型中找不到关节 ${name}，请重新选择关节`);
+    const axis=axisFromDirection(document.getElementById('axisDirection').value);
+    if(axis.x===0&&axis.y===0&&axis.z===0){
+      throw new Error('请选择一个 Axis 方向');
     }
+    const positionScale=parseFloat(document.getElementById('editorPositionScale').value);
+    const positionOffsetDeg=parseFloat(document.getElementById('editorPositionOffset').value);
+    if(!Number.isFinite(positionScale)) throw new Error('位置方向倍率必须是有效数字');
+    if(!Number.isFinite(positionOffsetDeg)) throw new Error('零位偏移必须是有效数字');
+
+    const previousPositionScale=Number(jointMap[name].positionScale);
+    const previousPositionOffset=Number(jointMap[name].positionOffsetDeg);
+    jointMap[name].axis=axis;
+    jointMap[name].parentLinkName=document.getElementById('editorParent').value;
+    jointMap[name].childLinkName=document.getElementById('editorChild').value;
+    jointMap[name].reportedJointName=document.getElementById('editorReportedName').value.trim()||name;
+    jointMap[name].positionScale=positionScale;
+    jointMap[name].positionOffsetDeg=positionOffsetDeg;
+    const serializeJoint=(name,base={})=>({
+      ...base,
+      name,
+      modelNodeName:jointMap[name].modelNodeName!==name?jointMap[name].modelNodeName:undefined,
+      reportedJointName:jointMap[name].reportedJointName,
+      positionScale:jointMap[name].positionScale,
+      positionOffsetDeg:jointMap[name].positionOffsetDeg,
+      rotationReference:jointMap[name].rotationReference,
+      rotationSpace:jointMap[name].rotationSpace,
+      axis:jointMap[name].axis,
+      parentLinkName:jointMap[name].parentLinkName||jointMap[name].parent||'',
+      childLinkName:jointMap[name].childLinkName||jointMap[name].child||''
+    });
+    const existingJoints=Array.isArray(urdfData&&urdfData.joints)?urdfData.joints:[];
+    const joints=existingJoints.map(joint=>jointMap[joint.name]?serializeJoint(joint.name,joint):joint);
+    const existingNames=new Set(existingJoints.map(joint=>joint.name));
+    for(const k in jointMap){
+      if(!existingNames.has(k)) joints.push(serializeJoint(k));
+      if(jointMap[k].axisHelper){
+        jointMap[k].node.remove(jointMap[k].axisHelper);
+        jointMap[k].axisHelper=null;
+      }
+    }
+    urdfData={...(urdfData||{}),joints};
+    jsonInput.value=JSON.stringify({urdf:urdfData},null,2);
+    const controlLabel=jointMap[name].controlDiv&&jointMap[name].controlDiv.firstElementChild;
+    if(controlLabel){
+      controlLabel.textContent=name;
+      controlLabel.removeAttribute('title');
+    }
+    if(latestReportedJointStates.length){
+      renderJointMappingResult(applyLatestJointStates(latestReportedJointStates));
+    }
+    let appliedNow=false;
+    const editedJoint=jointMap[name];
+    if(editedJoint.hasAppliedValue){
+      // 有原始上报角时直接按新倍率/偏移重算；手动值则先按旧配置还原再重新映射。
+      const baseDegrees=Number.isFinite(editedJoint.lastReportedDegrees)
+        ?editedJoint.lastReportedDegrees
+        :Number.isFinite(previousPositionScale)&&Math.abs(previousPositionScale)>1e-12
+          ?(editedJoint.value-(Number.isFinite(previousPositionOffset)?previousPositionOffset:0))/previousPositionScale
+          :editedJoint.value;
+      const mappedDegrees=baseDegrees*positionScale+positionOffsetDeg;
+      editedJoint.value=mappedDegrees;
+      editedJoint.appliedDegrees=mappedDegrees;
+      editedJoint.renderedValue=mappedDegrees;
+      editedJoint.targetValue=mappedDegrees;
+      editedJoint.smoothReportedValue=false;
+      applyJointRotation(name,mappedDegrees);
+      if(editedJoint.syncControlUnit) editedJoint.syncControlUnit();
+      appliedNow=true;
+    }
+    renderJointDiagnostics();
+    setStatus('关节编辑已保存并写入JSON');
+    toggleJointEditor(true,name);
+    showToast(
+      appliedNow
+        ?`${name} 已保存并应用，最终角度 ${Number(editedJoint.value.toFixed(3))}°`
+        :`${name} 已保存；零位偏移会在应用关节角后生效`,
+      'success'
+    );
+  }catch(error){
+    console.error('保存关节失败',error);
+    setStatus('关节编辑保存失败');
+    showToast(`保存失败：${error.message}`,'error',4500);
   }
-  urdfData={...(urdfData||{}),joints};
-  jsonInput.value=JSON.stringify({urdf:urdfData},null,2);
-  const controlLabel=jointMap[name].controlDiv&&jointMap[name].controlDiv.firstElementChild;
-  if(controlLabel){
-    controlLabel.textContent=name;
-    controlLabel.removeAttribute('title');
-  }
-  if(latestReportedJointStates.length){
-    renderJointMappingResult(applyLatestJointStates(latestReportedJointStates));
-  }
-  setStatus('关节编辑已保存并写入JSON');
-  toggleJointEditor(true,name);
 }
 
 document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits);
-  function setStatus(text){ statusEl.textContent='状态：'+text; }
+for(const id of ['axisDirection','editorPositionOffset']){
+  document.getElementById(id).addEventListener('input',updateBlenderOffsetHint);
+  document.getElementById(id).addEventListener('change',updateBlenderOffsetHint);
+}
+  function setStatus(text){
+    statusEl.textContent='状态：'+text;
+    statusEl.title=statusEl.textContent;
+  }
 
   const viewer=document.getElementById('viewer');
   const viewerShell=document.getElementById('viewerShell');
@@ -771,6 +1031,7 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   const assetPanelBody=document.getElementById('assetPanelBody');
   const assetToggleBtn=document.getElementById('assetToggleBtn');
   const glbInput=document.getElementById('glbInput');
+  const urdfFolderInput=document.getElementById('urdfFolderInput');
   const modelFileName=document.getElementById('modelFileName');
   const mapInput=document.getElementById('mapInput');
   const mapFileName=document.getElementById('mapFileName');
@@ -788,14 +1049,102 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   const clearJsonBtn=document.getElementById('clearJsonBtn');
   const jsonInput=document.getElementById('jsonInput');
   const jointControls=document.getElementById('jointControls');
+  const jointEditor=document.getElementById('jointEditor');
+  const jointDiagnostics=document.getElementById('jointDiagnostics');
+  const angleDegBtn=document.getElementById('angleDegBtn');
+  const angleRadBtn=document.getElementById('angleRadBtn');
   const clearAllBtn=document.getElementById('clearAllBtn');
   const grpcBaseUrl=document.getElementById('grpcBaseUrl');
+  const grpcUrlCombobox=document.getElementById('grpcUrlCombobox');
+  const grpcUrlHistoryToggle=document.getElementById('grpcUrlHistoryToggle');
+  const grpcUrlHistoryMenu=document.getElementById('grpcUrlHistoryMenu');
   const armIndexInput=document.getElementById('armIndex');
   const getLatestJointsBtn=document.getElementById('getLatestJointsBtn');
+  const toggleContinuousJointsBtn=document.getElementById('toggleContinuousJointsBtn');
   const jointStatesInput=document.getElementById('jointStatesInput');
   const applyJointStatesBtn=document.getElementById('applyJointStatesBtn');
   const grpcResult=document.getElementById('grpcResult');
-  grpcBaseUrl.value='http://10.10.28.124:6700/grpcui/';
+  const grpcUrlHistoryKey='urdf-viewer.grpc-url-history.v1';
+  const defaultGrpcUrl='http://172.31.22.123:6700/grpcui/';
+  jointEditor.addEventListener('pointerdown',releaseJsonEditorFocus,true);
+  function readGrpcUrlHistory(){
+    try{
+      const value=JSON.parse(localStorage.getItem(grpcUrlHistoryKey)||'[]');
+      return Array.isArray(value)?value.filter(url=>typeof url==='string'&&url.trim()):[];
+    }catch{
+      return [];
+    }
+  }
+  function closeGrpcUrlHistory(){
+    grpcUrlHistoryMenu.hidden=true;
+    grpcBaseUrl.setAttribute('aria-expanded','false');
+  }
+  function renderGrpcUrlHistory(filter='',showAll=false){
+    const query=String(filter||'').trim().toLowerCase();
+    const allHistory=readGrpcUrlHistory();
+    const history=allHistory.filter(url=>
+      showAll || !query || url.toLowerCase().includes(query)
+    );
+    grpcUrlHistoryMenu.innerHTML='';
+    if(!history.length){
+      const empty=document.createElement('div');
+      empty.className='grpc-history-empty';
+      empty.textContent=allHistory.length?'没有匹配的历史地址':'暂无历史地址';
+      grpcUrlHistoryMenu.appendChild(empty);
+      return;
+    }
+    for(const url of history){
+      const option=document.createElement('button');
+      option.type='button';
+      option.className='grpc-history-option';
+      option.setAttribute('role','option');
+      option.title=url;
+      option.textContent=url;
+      option.addEventListener('click',()=>{
+        grpcBaseUrl.value=url;
+        closeGrpcUrlHistory();
+        grpcBaseUrl.focus();
+      });
+      grpcUrlHistoryMenu.appendChild(option);
+    }
+  }
+  function openGrpcUrlHistory(showAll=false){
+    renderGrpcUrlHistory(grpcBaseUrl.value,showAll);
+    grpcUrlHistoryMenu.hidden=false;
+    grpcBaseUrl.setAttribute('aria-expanded','true');
+  }
+  function normalizeGrpcUrl(value){
+    let url=String(value||'').trim();
+    if(url && !/^[a-z][a-z\d+.-]*:\/\//i.test(url)) url='http://'+url;
+    return url;
+  }
+  function rememberGrpcUrl(value){
+    const url=normalizeGrpcUrl(value);
+    if(!url) return;
+    const history=[url,...readGrpcUrlHistory().filter(item=>item!==url)].slice(0,12);
+    try{ localStorage.setItem(grpcUrlHistoryKey,JSON.stringify(history)); }catch{}
+    grpcBaseUrl.value=url;
+    closeGrpcUrlHistory();
+  }
+  const savedGrpcUrls=readGrpcUrlHistory();
+  grpcBaseUrl.value=savedGrpcUrls[0]||defaultGrpcUrl;
+  grpcBaseUrl.addEventListener('input',()=>openGrpcUrlHistory(false));
+  grpcBaseUrl.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){
+      closeGrpcUrlHistory();
+    }else if(event.key==='ArrowDown'){
+      event.preventDefault();
+      if(grpcUrlHistoryMenu.hidden) openGrpcUrlHistory(true);
+      grpcUrlHistoryMenu.querySelector('.grpc-history-option')?.focus();
+    }
+  });
+  grpcUrlHistoryToggle.addEventListener('click',()=>{
+    if(grpcUrlHistoryMenu.hidden) openGrpcUrlHistory(true);
+    else closeGrpcUrlHistory();
+  });
+  document.addEventListener('click',event=>{
+    if(!grpcUrlCombobox.contains(event.target)) closeGrpcUrlHistory();
+  });
   if(location.protocol==='file:'){
     fileModeWarning.classList.add('active');
     setStatus('本地文件模式会拦截部分资源');
@@ -873,6 +1222,7 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   loader.setDRACOLoader(dracoLoader);
 
   let currentModel=null;
+  let currentPackageUrls=[];
   let gridHelper=null;
   let axesHelper=null;
   let mapPlane=null;
@@ -886,7 +1236,32 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   axesHelper=new THREE.AxesHelper(5);
   scene.add(axesHelper);
 
-  function clearModel(){ if(currentModel){ scene.remove(currentModel); currentModel=null; } }
+  function disposeObject3D(root){
+    root.traverse(object=>{
+      if(object.geometry) object.geometry.dispose();
+      const materials=Array.isArray(object.material)?object.material:[object.material];
+      for(const material of materials){
+        if(!material) continue;
+        for(const value of Object.values(material)){
+          if(value&&value.isTexture) value.dispose();
+        }
+        material.dispose();
+      }
+    });
+  }
+
+  function clearModel(){
+    if(currentModel){
+      scene.remove(currentModel);
+      disposeObject3D(currentModel);
+      currentModel=null;
+    }
+    for(const url of currentPackageUrls) URL.revokeObjectURL(url);
+    currentPackageUrls=[];
+    jointMap={};
+    jointControls.innerHTML='';
+    renderJointDiagnostics();
+  }
 
   function updateHelpers(){
     if(gridHelper){ scene.remove(gridHelper); gridHelper=null; }
@@ -1137,7 +1512,441 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     throw new Error('仅支持 JSON 或 PNG 地图文件');
   }
 
-  function tryParseGLB(arrayBuffer){ loader.parse(arrayBuffer,'',gltf=>{ clearModel(); currentModel=gltf.scene;
+  function normalizePackagePath(path){
+    let value=decodeURIComponent(String(path||'').replace(/\\/g,'/').split(/[?#]/)[0]);
+    value=value.replace(/^file:\/+/i,'').replace(/^\/+/,'');
+    if(value.startsWith('package://')){
+      value=value.slice('package://'.length).split('/').slice(1).join('/');
+    }
+    const parts=[];
+    for(const part of value.split('/')){
+      if(!part||part==='.') continue;
+      if(part==='..') parts.pop();
+      else parts.push(part);
+    }
+    return parts.join('/');
+  }
+
+  function packageDirectory(path){
+    const normalized=normalizePackagePath(path);
+    const slash=normalized.lastIndexOf('/');
+    return slash===-1?'':normalized.slice(0,slash+1);
+  }
+
+  function makePackageRecord(path,blob){
+    return {
+      path:normalizePackagePath(path),
+      blob,
+      text:()=>blob.text(),
+      arrayBuffer:()=>blob.arrayBuffer()
+    };
+  }
+
+  function recordsFromFiles(files){
+    return Array.from(files).map(file=>makePackageRecord(file.webkitRelativePath||file.name,file));
+  }
+
+  async function recordsFromZip(file){
+    const zip=await JSZip.loadAsync(file);
+    const records=[];
+    for(const entry of Object.values(zip.files)){
+      if(entry.dir || entry.name.startsWith('__MACOSX/')) continue;
+      records.push(makePackageRecord(entry.name,await entry.async('blob')));
+    }
+    return records;
+  }
+
+  function findPackageAsset(records,reference,basePath=''){
+    if(!reference) return null;
+    let requested=String(reference).replace(/^package:\/\/[^/]+\//i,'');
+    if(requested.startsWith('urdfpkg:///')) requested=requested.slice('urdfpkg:///'.length);
+    const direct=normalizePackagePath(requested);
+    const relative=normalizePackagePath(packageDirectory(basePath)+requested);
+    const candidates=[relative,direct].filter(Boolean);
+    for(const candidate of candidates){
+      const exact=records.find(record=>record.path===candidate);
+      if(exact) return exact;
+    }
+    const suffix='/'+direct;
+    return records
+      .filter(record=>record.path===direct||record.path.endsWith(suffix))
+      .sort((a,b)=>a.path.split('/').length-b.path.split('/').length)[0]||null;
+  }
+
+  async function findMainUrdf(records){
+    const candidates=records.filter(record=>/\.(urdf|xml)$/i.test(record.path));
+    if(!candidates.length) throw new Error('文件包中未找到 URDF 文件');
+    let best=null;
+    for(const record of candidates){
+      try{
+        const xmlText=await record.text();
+        const xml=new DOMParser().parseFromString(xmlText,'application/xml');
+        const robot=xml.documentElement&&xml.documentElement.localName==='robot'?xml.documentElement:null;
+        if(!robot || xml.querySelector('parsererror')) continue;
+        const score=robot.querySelectorAll('link').length*2+
+          robot.querySelectorAll('joint').length*3-
+          record.path.split('/').length;
+        if(!best||score>best.score) best={record,xmlText,xml,robot,score};
+      }catch(error){}
+    }
+    if(!best) throw new Error('未找到可解析的主 URDF 文件');
+    return best;
+  }
+
+  function directChild(element,name){
+    return Array.from(element&&element.children||[]).find(child=>child.localName===name)||null;
+  }
+
+  function directChildren(element,name){
+    return Array.from(element&&element.children||[]).filter(child=>child.localName===name);
+  }
+
+  function parseNumbers(value,count,fallback=0){
+    const values=String(value||'').trim().split(/\s+/).filter(Boolean).map(Number);
+    return Array.from({length:count},(_,index)=>Number.isFinite(values[index])?values[index]:fallback);
+  }
+
+  function parseOrigin(element){
+    const origin=directChild(element,'origin');
+    const [x,y,z]=parseNumbers(origin&&origin.getAttribute('xyz'),3,0);
+    const [roll,pitch,yaw]=parseNumbers(origin&&origin.getAttribute('rpy'),3,0);
+    return {x,y,z,roll,pitch,yaw};
+  }
+
+  function applyUrdfOrigin(object,origin){
+    object.position.set(origin.x,origin.y,origin.z);
+    // URDF rpy 使用固定轴旋转：Rz(yaw) × Ry(pitch) × Rx(roll)。
+    const rollQ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),origin.roll);
+    const pitchQ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),origin.pitch);
+    const yawQ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),origin.yaw);
+    object.quaternion.copy(yawQ).multiply(pitchQ).multiply(rollQ);
+  }
+
+  function parseUrdfMaterial(element,globalMaterials){
+    const materialElement=directChild(element,'material');
+    if(!materialElement) return null;
+    const name=materialElement.getAttribute('name')||'';
+    const colorElement=directChild(materialElement,'color');
+    const textureElement=directChild(materialElement,'texture');
+    if(!colorElement&&!textureElement&&name&&globalMaterials.has(name)) return globalMaterials.get(name);
+    const rgba=parseNumbers(colorElement&&colorElement.getAttribute('rgba'),4,1);
+    return {
+      name,
+      color:rgba.slice(0,3),
+      opacity:rgba[3],
+      texture:textureElement&&textureElement.getAttribute('filename')||''
+    };
+  }
+
+  function createPackageLoadingManager(records,urlCache,basePath,packageUrls){
+    const manager=new THREE.LoadingManager();
+    manager.setURLModifier(url=>{
+      if(/^(data:|blob:|https?:)/i.test(url)) return url;
+      const asset=findPackageAsset(records,url,basePath);
+      if(!asset) return url;
+      if(!urlCache.has(asset.path)){
+        const objectUrl=URL.createObjectURL(asset.blob);
+        urlCache.set(asset.path,objectUrl);
+        packageUrls.push(objectUrl);
+      }
+      return urlCache.get(asset.path);
+    });
+    return manager;
+  }
+
+  async function createUrdfMaterial(definition,records,manager,basePath,collision=false){
+    if(collision){
+      return new THREE.MeshStandardMaterial({color:0xffa64d,transparent:true,opacity:.22,roughness:.8});
+    }
+    const color=definition&&definition.color||[.72,.72,.75];
+    const material=new THREE.MeshStandardMaterial({
+      color:new THREE.Color(color[0],color[1],color[2]),
+      transparent:Boolean(definition&&definition.opacity<1),
+      opacity:definition&&Number.isFinite(definition.opacity)?definition.opacity:1,
+      roughness:.72,
+      metalness:.05
+    });
+    material.userData.urdfExplicit=Boolean(definition);
+    if(definition&&definition.texture){
+      const textureAsset=findPackageAsset(records,definition.texture,basePath);
+      if(textureAsset){
+        const texture=await new THREE.TextureLoader(manager).loadAsync(`urdfpkg:///${textureAsset.path}`);
+        texture.colorSpace=THREE.SRGBColorSpace;
+        material.map=texture;
+        material.needsUpdate=true;
+      }
+    }
+    return material;
+  }
+
+  async function loadUrdfMesh(meshElement,records,manager,urlCache,urdfPath,material,collision){
+    const filename=meshElement.getAttribute('filename')||meshElement.getAttribute('url')||'';
+    const asset=findPackageAsset(records,filename,urdfPath);
+    if(!asset) throw new Error(`缺少 Mesh：${filename}`);
+    const extension=asset.path.split('.').pop().toLowerCase();
+    let object;
+    if(extension==='stl'){
+      const geometry=new STLLoader(manager).parse(await asset.arrayBuffer());
+      geometry.computeVertexNormals();
+      object=new THREE.Mesh(geometry,material);
+    }else if(extension==='obj'){
+      const objText=await asset.text();
+      const objLoader=new OBJLoader(manager);
+      const mtlMatch=objText.match(/^\s*mtllib\s+(.+)$/im);
+      if(mtlMatch){
+        const mtlAsset=findPackageAsset(records,mtlMatch[1].trim(),asset.path);
+        if(mtlAsset){
+          const materials=new MTLLoader(manager).parse(await mtlAsset.text(),`urdfpkg:///${packageDirectory(mtlAsset.path)}`);
+          materials.preload();
+          objLoader.setMaterials(materials);
+        }
+      }
+      object=objLoader.parse(objText);
+    }else if(extension==='dae'){
+      object=new ColladaLoader(manager).parse(await asset.text(),`urdfpkg:///${packageDirectory(asset.path)}`).scene;
+    }else if(extension==='glb'||extension==='gltf'){
+      const gltfLoader=new GLTFLoader(manager);
+      gltfLoader.setDRACOLoader(dracoLoader);
+      const data=extension==='glb'?await asset.arrayBuffer():await asset.text();
+      const gltf=await new Promise((resolve,reject)=>{
+        gltfLoader.parse(data,`urdfpkg:///${packageDirectory(asset.path)}`,resolve,reject);
+      });
+      object=gltf.scene;
+    }else{
+      throw new Error(`暂不支持 Mesh 格式：.${extension}`);
+    }
+    if(collision){
+      object.traverse(child=>{
+        if(child.isMesh) child.material=material.clone();
+      });
+    }else if(material.userData.urdfExplicit){
+      object.traverse(child=>{
+        if(child.isMesh) child.material=material.clone();
+      });
+    }else if(extension!=='obj'&&extension!=='dae'&&extension!=='glb'&&extension!=='gltf'){
+      object.traverse(child=>{ if(child.isMesh) child.material=material; });
+    }
+    const [sx,sy,sz]=parseNumbers(meshElement.getAttribute('scale'),3,1);
+    object.scale.multiply(new THREE.Vector3(sx,sy,sz));
+    object.name=asset.path.split('/').pop();
+    return object;
+  }
+
+  async function createUrdfGeometry(geometryElement,records,manager,urlCache,urdfPath,material,collision){
+    const geometryNode=geometryElement&&geometryElement.firstElementChild;
+    if(!geometryNode) return null;
+    if(geometryNode.localName==='mesh'){
+      return loadUrdfMesh(geometryNode,records,manager,urlCache,urdfPath,material,collision);
+    }
+    let geometry=null;
+    if(geometryNode.localName==='box'){
+      const [x,y,z]=parseNumbers(geometryNode.getAttribute('size'),3,1);
+      geometry=new THREE.BoxGeometry(x,y,z);
+    }else if(geometryNode.localName==='cylinder'){
+      const radius=Number(geometryNode.getAttribute('radius'))||.5;
+      const length=Number(geometryNode.getAttribute('length'))||1;
+      geometry=new THREE.CylinderGeometry(radius,radius,length,32);
+      geometry.rotateX(Math.PI/2);
+    }else if(geometryNode.localName==='sphere'){
+      geometry=new THREE.SphereGeometry(Number(geometryNode.getAttribute('radius'))||.5,32,20);
+    }
+    return geometry?new THREE.Mesh(geometry,material):null;
+  }
+
+  function describeUrdfGeometry(geometryElement){
+    const node=geometryElement&&geometryElement.firstElementChild;
+    if(!node) return null;
+    if(node.localName==='mesh'){
+      return {
+        type:'mesh',
+        filename:node.getAttribute('filename')||node.getAttribute('url')||'',
+        scale:parseNumbers(node.getAttribute('scale'),3,1)
+      };
+    }
+    if(node.localName==='box') return {type:'box',size:parseNumbers(node.getAttribute('size'),3,1)};
+    if(node.localName==='cylinder'){
+      return {type:'cylinder',radius:Number(node.getAttribute('radius'))||0,length:Number(node.getAttribute('length'))||0};
+    }
+    if(node.localName==='sphere') return {type:'sphere',radius:Number(node.getAttribute('radius'))||0};
+    return {type:node.localName};
+  }
+
+  function parseInertial(linkElement){
+    const inertial=directChild(linkElement,'inertial');
+    if(!inertial) return null;
+    const mass=directChild(inertial,'mass');
+    const tensor=directChild(inertial,'inertia');
+    return {
+      origin:parseOrigin(inertial),
+      mass:Number(mass&&mass.getAttribute('value'))||0,
+      inertia:tensor?Object.fromEntries(['ixx','ixy','ixz','iyy','iyz','izz'].map(key=>[key,Number(tensor.getAttribute(key))||0])):null
+    };
+  }
+
+  function parseElementAttributes(element){
+    if(!element) return null;
+    const result={};
+    for(const attribute of Array.from(element.attributes)){
+      const numeric=Number(attribute.value);
+      result[attribute.name]=attribute.value.trim()!==''&&Number.isFinite(numeric)?numeric:attribute.value;
+    }
+    return result;
+  }
+
+  async function loadUrdfPackage(records,packageLabel){
+    setStatus('正在解析 URDF 文件包…');
+    const main=await findMainUrdf(records);
+    const globalMaterials=new Map();
+    for(const materialElement of directChildren(main.robot,'material')){
+      const name=materialElement.getAttribute('name')||'';
+      if(name) globalMaterials.set(name,parseUrdfMaterial({children:[materialElement]},new Map()));
+    }
+    const urlCache=new Map();
+    const packageUrls=[];
+    const manager=createPackageLoadingManager(records,urlCache,main.record.path,packageUrls);
+    const robotRoot=new THREE.Group();
+    robotRoot.name=main.robot.getAttribute('name')||'URDFRobot';
+    robotRoot.userData.urdfSource=main.record.path;
+    const linkObjects=new Map();
+    const linkData=[];
+    const warnings=[];
+    for(const linkElement of directChildren(main.robot,'link')){
+      const linkName=linkElement.getAttribute('name')||`link_${linkObjects.size+1}`;
+      const linkObject=new THREE.Group();
+      linkObject.name=linkName;
+      linkObject.userData.urdfLink=true;
+      linkObject.userData.inertial=parseInertial(linkElement);
+      const visualGroup=new THREE.Group();
+      visualGroup.name=`${linkName}_visual`;
+      linkObject.add(visualGroup);
+      const collisionGroup=new THREE.Group();
+      collisionGroup.name=`${linkName}_collision`;
+      collisionGroup.visible=false;
+      linkObject.add(collisionGroup);
+      const visualData=[];
+      const collisionData=[];
+      for(const [kind,target,dataTarget] of [['visual',visualGroup,visualData],['collision',collisionGroup,collisionData]]){
+        for(const element of directChildren(linkElement,kind)){
+          const origin=parseOrigin(element);
+          const geometryElement=directChild(element,'geometry');
+          const materialDefinition=parseUrdfMaterial(element,globalMaterials);
+          const material=await createUrdfMaterial(materialDefinition,records,manager,main.record.path,kind==='collision');
+          try{
+            const geometryObject=await createUrdfGeometry(geometryElement,records,manager,urlCache,main.record.path,material,kind==='collision');
+            if(!geometryObject) continue;
+            const frame=new THREE.Group();
+            frame.name=element.getAttribute('name')||`${linkName}_${kind}_${dataTarget.length+1}`;
+            applyUrdfOrigin(frame,origin);
+            frame.add(geometryObject);
+            target.add(frame);
+            dataTarget.push({
+              name:frame.name,
+              origin,
+              geometry:describeUrdfGeometry(geometryElement),
+              material:materialDefinition
+            });
+          }catch(error){
+            warnings.push(`${linkName}/${kind}: ${error.message}`);
+          }
+        }
+      }
+      linkObjects.set(linkName,linkObject);
+      linkData.push({name:linkName,inertial:linkObject.userData.inertial,visual:visualData,collision:collisionData});
+    }
+    const joints=[];
+    const childLinks=new Set();
+    for(const jointElement of directChildren(main.robot,'joint')){
+      const name=jointElement.getAttribute('name')||`joint_${joints.length+1}`;
+      const type=jointElement.getAttribute('type')||'fixed';
+      const parent=directChild(jointElement,'parent')?.getAttribute('link')||'';
+      const child=directChild(jointElement,'child')?.getAttribute('link')||'';
+      const origin=parseOrigin(jointElement);
+      const axisAttribute=directChild(jointElement,'axis')?.getAttribute('xyz');
+      const [axisX,axisY,axisZ]=axisAttribute?parseNumbers(axisAttribute,3,0):[1,0,0];
+      const limitElement=directChild(jointElement,'limit');
+      const limit=limitElement?Object.fromEntries(['lower','upper','effort','velocity'].map(key=>[key,Number(limitElement.getAttribute(key))||0])):null;
+      const dynamics=parseElementAttributes(directChild(jointElement,'dynamics'));
+      const mimic=parseElementAttributes(directChild(jointElement,'mimic'));
+      const safetyController=parseElementAttributes(directChild(jointElement,'safety_controller'));
+      const calibration=parseElementAttributes(directChild(jointElement,'calibration'));
+      const pivot=new THREE.Group();
+      pivot.name=name;
+      pivot.userData.urdfJoint={name,type,parent,child,origin,axis:{x:axisX,y:axisY,z:axisZ},limit,dynamics,mimic,safetyController,calibration};
+      applyUrdfOrigin(pivot,origin);
+      const parentObject=linkObjects.get(parent);
+      const childObject=linkObjects.get(child);
+      if(parentObject&&childObject){
+        parentObject.add(pivot);
+        pivot.add(childObject);
+        childLinks.add(child);
+      }else{
+        warnings.push(`${name}: parent/child link 不完整`);
+      }
+      joints.push({
+        name,
+        modelNodeName:name,
+        reportedJointName:name,
+        type,
+        controllable:type!=='fixed',
+        positionScale:1,
+        positionOffsetDeg:0,
+        rotationReference:'relative',
+        rotationSpace:'local',
+        axis:{x:axisX,y:axisY,z:axisZ},
+        origin,
+        limit,
+        dynamics,
+        mimic,
+        safetyController,
+        calibration,
+        parentLinkName:parent,
+        childLinkName:child
+      });
+    }
+    for(const [name,linkObject] of linkObjects){
+      if(!childLinks.has(name)) robotRoot.add(linkObject);
+    }
+    const previousJointState=captureJointRuntimeState();
+    clearModel();
+    currentPackageUrls=packageUrls;
+    currentModel=robotRoot;
+    urdfData={
+      name:robotRoot.name,
+      sourceUrdf:main.record.path,
+      modelRotationDeg:{x:0,y:0,z:0},
+      modelRotationOrder:'XYZ',
+      links:linkData,
+      joints
+    };
+    jsonInput.value=JSON.stringify({urdf:urdfData},null,2);
+    scene.add(currentModel);
+    const restoredCount=setupJointsFromURDF(false,previousJointState);
+    fitCameraToScene();
+    modelFileName.textContent=`${packageLabel} · ${main.record.path}`;
+    const movable=joints.filter(joint=>joint.controllable).length;
+    setStatus(`URDF 已加载：${linkObjects.size} links，${joints.length} joints，${movable} 个可驱动${warnings.length?`，${warnings.length} 个资源警告`:''}`);
+    if(restoredCount) showToast(`已恢复 ${restoredCount} 个同名关节的控制值`,'success');
+    if(warnings.length) console.warn('URDF package warnings:',warnings);
+  }
+
+  async function handleUrdfPackage(records,label){
+    if(!records.length) return;
+    try{
+      await loadUrdfPackage(records,label);
+    }catch(error){
+      console.error('URDF package load failed',error);
+      setStatus(`URDF 加载失败：${error.message}`);
+    }
+  }
+
+  function tryParseGLB(arrayBuffer){ loader.parse(arrayBuffer,'',gltf=>{
+    const previousJointState=captureJointRuntimeState();
+    clearModel();
+    currentModel=gltf.scene;
+    if(urdfData&&urdfData.sourceUrdf){
+      urdfData=null;
+      jsonInput.value='';
+    }
     applyModelRootRotation();
     scene.add(currentModel); fitCameraToScene();
     // 若 JSON 为空或无 joints，自动基于骨骼生成默认 joints（含 parent/child）
@@ -1155,10 +1964,44 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
       urdfData={joints:autoJoints};
       jsonInput.value=JSON.stringify({urdf:{joints:autoJoints}},null,2);
     }
-    setupJointsFromURDF(false);
+    const restoredCount=setupJointsFromURDF(false,previousJointState);
     setStatus('GLB 模型加载完成');
+    if(restoredCount) showToast(`已恢复 ${restoredCount} 个同名关节的控制值`,'success');
   },err=>{ console.error('parse error',err); setStatus('GLB 解析失败'); }); }
-  glbInput.addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; modelFileName.textContent=f.name; const reader=new FileReader(); reader.onload=ev=>{ tryParseGLB(ev.target.result); }; reader.readAsArrayBuffer(f); });
+  glbInput.addEventListener('change',async event=>{
+    const files=Array.from(event.target.files||[]);
+    if(!files.length) return;
+    const zipFile=files.find(file=>/\.zip$/i.test(file.name));
+    const urdfFile=files.find(file=>/\.(urdf|xml)$/i.test(file.name));
+    const glbFile=files.find(file=>/\.(glb|gltf)$/i.test(file.name));
+    try{
+      if(zipFile){
+        modelFileName.textContent=`正在解压 ${zipFile.name}…`;
+        await handleUrdfPackage(await recordsFromZip(zipFile),zipFile.name);
+      }else if(urdfFile){
+        modelFileName.textContent=`正在解析 ${urdfFile.name}…`;
+        await handleUrdfPackage(recordsFromFiles(files),urdfFile.name);
+      }else if(glbFile){
+        modelFileName.textContent=glbFile.name;
+        tryParseGLB(await glbFile.arrayBuffer());
+      }else{
+        setStatus('无法识别模型文件，请选择 GLB、GLTF、URDF 或 ZIP');
+      }
+    }catch(error){
+      console.error('Model file load failed',error);
+      setStatus(`模型文件读取失败：${error.message}`);
+    }finally{
+      glbInput.value='';
+    }
+  });
+  urdfFolderInput.addEventListener('change',async event=>{
+    const files=Array.from(event.target.files||[]);
+    if(!files.length) return;
+    const rootName=(files[0].webkitRelativePath||files[0].name).split('/')[0];
+    modelFileName.textContent=`正在读取 ${rootName}…`;
+    await handleUrdfPackage(recordsFromFiles(files),rootName);
+    urdfFolderInput.value='';
+  });
 
   async function loadScenarioFromQuery(){
     const params=new URLSearchParams(location.search);
@@ -1214,7 +2057,45 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   let urdfData=null, jointMap={};
   let highlightedJoint=null;
   let latestReportedJointStates=[];
+  let jointAngleUnit='deg';
   let gizmoThickness=0.01, gizmoLength=0.3;
+
+  function isAngularJoint(joint){
+    return joint&&joint.jointType!=='prismatic';
+  }
+
+  function toJointDisplayValue(joint,value){
+    return jointAngleUnit==='rad'&&isAngularJoint(joint)
+      ?THREE.MathUtils.degToRad(value)
+      :value;
+  }
+
+  function fromJointDisplayValue(joint,value){
+    return jointAngleUnit==='rad'&&isAngularJoint(joint)
+      ?THREE.MathUtils.radToDeg(value)
+      :value;
+  }
+
+  function formatJointDisplayValue(joint,value){
+    const displayed=toJointDisplayValue(joint,value);
+    const precision=jointAngleUnit==='rad'&&isAngularJoint(joint)?4:3;
+    return Number(displayed.toFixed(precision));
+  }
+
+  function setJointAngleUnit(unit){
+    jointAngleUnit=unit==='rad'?'rad':'deg';
+    const isRad=jointAngleUnit==='rad';
+    angleDegBtn.classList.toggle('active',!isRad);
+    angleRadBtn.classList.toggle('active',isRad);
+    angleDegBtn.setAttribute('aria-pressed',String(!isRad));
+    angleRadBtn.setAttribute('aria-pressed',String(isRad));
+    for(const joint of Object.values(jointMap)){
+      if(joint.syncControlUnit) joint.syncControlUnit();
+    }
+  }
+
+  angleDegBtn.addEventListener('click',()=>{ setJointAngleUnit('deg'); });
+  angleRadBtn.addEventListener('click',()=>{ setJointAngleUnit('rad'); });
 
   function applyModelRootRotation(){
     if(!currentModel) return;
@@ -1278,6 +2159,7 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     jointControls.querySelectorAll('.joint-control').forEach(d=>d.classList.remove('selected'));
     fitCameraToScene();
     setStatus('模型已刷新到初始状态');
+    renderJointDiagnostics();
   });
 
   clearAllBtn.addEventListener('click',()=>{
@@ -1288,24 +2170,46 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     jointControls.querySelectorAll('input[type=range]').forEach(s=>s.value=0);
     jointControls.querySelectorAll('input[type=number]').forEach(i=>i.value=0);
     setStatus('所有关节数值已清空');
+    renderJointDiagnostics();
   });
 
-  function setupJointsFromURDF(preserveValues){
-    const prevValues={};
+  function captureJointRuntimeState(){
+    const state={};
+    for(const [name,joint] of Object.entries(jointMap)){
+      state[name]={
+        val:Number.isFinite(Number(joint.value))?Number(joint.value):0,
+        applied:Boolean(joint.hasAppliedValue),
+        reportedRadians:joint.lastReportedRadians,
+        reportedDegrees:joint.lastReportedDegrees
+      };
+    }
+    return state;
+  }
+
+  function setupJointsFromURDF(preserveValues,runtimeState=null){
+    const prevValues=runtimeState||{};
     if(preserveValues){
       for(const k in jointMap){
         prevValues[k]={
           val:jointMap[k].value,
           init:jointMap[k].initialQuaternion?jointMap[k].initialQuaternion.clone():jointMap[k].node.quaternion.clone(),
-          applied:Boolean(jointMap[k].hasAppliedValue)
+          initPosition:jointMap[k].initialPosition?jointMap[k].initialPosition.clone():jointMap[k].node.position.clone(),
+          applied:Boolean(jointMap[k].hasAppliedValue),
+          reportedRadians:jointMap[k].lastReportedRadians,
+          reportedDegrees:jointMap[k].lastReportedDegrees
         };
       }
     }
+    let restoredCount=0;
     jointMap={};
     jointControls.innerHTML='';
     document.getElementById('jointEditor').classList.remove('active');
-    if(!urdfData||!Array.isArray(urdfData.joints)) return;
+    if(!urdfData||!Array.isArray(urdfData.joints)){
+      renderJointDiagnostics();
+      return;
+    }
     urdfData.joints.forEach(j=>{
+      if(j.type==='fixed'||j.controllable===false) return;
       const requestedNodeName=j.modelNodeName||j.name;
       const candidates=[];
       currentModel.traverse(candidate=>{
@@ -1335,8 +2239,10 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
         j.parentLinkName = j.parentLinkName || j.parent || parentName;
         j.childLinkName = j.childLinkName || j.child || childName;
       }
-      const val=(preserveValues&&prevValues[j.name])?prevValues[j.name].val:0;
-      const initQ=(preserveValues&&prevValues[j.name])?prevValues[j.name].init.clone():node.quaternion.clone();
+      const previous=prevValues[j.name];
+      const val=previous?previous.val:0;
+      const initQ=(preserveValues&&previous&&previous.init)?previous.init.clone():node.quaternion.clone();
+      const initPosition=(preserveValues&&previous&&previous.initPosition)?previous.initPosition.clone():node.position.clone();
       const reportedJointName=j.reportedJointName||j.name;
       jointMap[j.name]={
         node:node,
@@ -1351,17 +2257,28 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
         rotationReference:j.rotationReference==='relative'?'relative':'absolute',
         // 未配置时使用骨骼局部轴；只有明确按父坐标轴定义时才指定 parent。
         rotationSpace:j.rotationSpace==='parent'?'parent':'local',
+        jointType:j.type||'revolute',
+        limit:j.limit||null,
         parentLinkName:j.parentLinkName||j.parent||'',
         childLinkName:j.childLinkName||j.child||'',
         originalMaterials:null,
         initialQuaternion:initQ,
-        hasAppliedValue:Boolean(preserveValues&&prevValues[j.name]&&prevValues[j.name].applied),
+        initialPosition:initPosition,
+        hasAppliedValue:Boolean(previous&&previous.applied),
+        lastReportedRadians:previous?previous.reportedRadians:null,
+        lastReportedDegrees:previous?previous.reportedDegrees:null,
+        appliedDegrees:Boolean(previous&&previous.applied)?val:null,
+        renderedValue:Boolean(previous&&previous.applied)?val:null,
+        targetValue:Boolean(previous&&previous.applied)?val:null,
+        smoothReportedValue:false,
         axisHelper:null,
         controlDiv:null,
         slider:null,
         input:null,
-        updateSliderTrack:null
+        updateSliderTrack:null,
+        syncControlUnit:null
       };
+      if(jointMap[j.name].hasAppliedValue) restoredCount++;
       // 仅登记 URDF 时保持 Blender/GLB 的原始绑定姿态。
       // 已经应用过的值才在重建映射后恢复，避免把默认 0°误当成一次绝对姿态更新。
       if(jointMap[j.name].hasAppliedValue) applyJointRotation(j.name,val);
@@ -1370,9 +2287,20 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
       const label=document.createElement('div');
       label.textContent=j.name;
       label.style.width='100px';
-      const slider=document.createElement('input'); slider.type='range'; slider.min=-360; slider.max=360; slider.step=1; slider.value=val; slider.style.flex='1';
+      const slider=document.createElement('input');
+      slider.type='range';
+      const isPrismatic=jointMap[j.name].jointType==='prismatic';
+      const lower=Number(j.limit&&j.limit.lower);
+      const upper=Number(j.limit&&j.limit.upper);
+      const valueMin=Number.isFinite(lower)&&Number.isFinite(upper)&&upper>lower
+        ?(isPrismatic?lower:THREE.MathUtils.radToDeg(lower))
+        :-360;
+      const valueMax=Number.isFinite(lower)&&Number.isFinite(upper)&&upper>lower
+        ?(isPrismatic?upper:THREE.MathUtils.radToDeg(upper))
+        :360;
+      slider.style.flex='1';
       function updateSliderTrack(){
-        const min=-360, max=360; const value=Number(slider.value)||0;
+        const min=Number(slider.min), max=Number(slider.max); const value=Number(slider.value)||0;
         const percent=(value-min)/(max-min); // 0..1
         const mid=(0-min)/(max-min); // 0.5
         const start=Math.min(percent, mid);
@@ -1387,11 +2315,68 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
           #F4F4F8 100%)`;
         slider.style.background=grad;
       }
-      updateSliderTrack();
-      const input=document.createElement('input'); input.type='number'; input.step=1; input.className='angle-input'; input.value=val;
+      const input=document.createElement('input'); input.type='number'; input.className='angle-input';
+      function syncControlUnit(){
+        const joint=jointMap[j.name];
+        const displayMin=toJointDisplayValue(joint,valueMin);
+        const displayMax=toJointDisplayValue(joint,valueMax);
+        const displayStep=isPrismatic ? 0.001 : (jointAngleUnit==='rad' ? 0.001 : 1);
+        // range 以 min 作为 step 网格原点。URDF 限位通常不是整数步长，直接赋值会让浏览器
+        // 把 0 暗中修正成接近 0 的小数。在不超过物理限位的前提下，将边界对齐到以 0 为基准的网格。
+        let sliderMin=displayMin;
+        let sliderMax=displayMax;
+        if(displayMin<=0&&displayMax>=0){
+          const alignedMin=Math.ceil(displayMin/displayStep-1e-9)*displayStep;
+          const alignedMax=Math.floor(displayMax/displayStep+1e-9)*displayStep;
+          if(alignedMax>alignedMin){
+            sliderMin=Number(alignedMin.toFixed(12));
+            sliderMax=Number(alignedMax.toFixed(12));
+          }
+        }
+        slider.min=sliderMin;
+        slider.max=sliderMax;
+        slider.step=displayStep;
+        // 接口角度通常包含小数；允许输入框保留精度，避免浏览器因 step=1 判为无效值。
+        input.step='any';
+        const displayed=toJointDisplayValue(joint,joint.value);
+        slider.value=Math.max(Number(slider.min),Math.min(Number(slider.max),displayed));
+        input.value=formatJointDisplayValue(joint,joint.value);
+        updateSliderTrack();
+      }
 
-      slider.addEventListener('input',()=>{ const v=parseFloat(slider.value); jointMap[j.name].value=v; jointMap[j.name].hasAppliedValue=true; input.value=v; applyJointRotation(j.name,v); updateSliderTrack(); });
-      input.addEventListener('change',()=>{ let v=parseFloat(input.value); if(isNaN(v)) v=0; v=Math.max(-360,Math.min(360,v)); input.value=v; slider.value=v; jointMap[j.name].value=v; jointMap[j.name].hasAppliedValue=true; applyJointRotation(j.name,v); updateSliderTrack(); });
+      slider.addEventListener('input',()=>{
+        const joint=jointMap[j.name];
+        const displayed=parseFloat(slider.value);
+        const value=fromJointDisplayValue(joint,displayed);
+        joint.value=value;
+        joint.hasAppliedValue=true;
+        joint.appliedDegrees=value;
+        joint.renderedValue=value;
+        joint.targetValue=value;
+        joint.smoothReportedValue=false;
+        input.value=formatJointDisplayValue(joint,value);
+        applyJointRotation(j.name,value);
+        updateSliderTrack();
+        renderJointDiagnostics();
+      });
+      input.addEventListener('change',()=>{
+        const joint=jointMap[j.name];
+        let displayed=parseFloat(input.value);
+        if(isNaN(displayed)) displayed=0;
+        displayed=Math.max(Number(slider.min),Math.min(Number(slider.max),displayed));
+        const value=fromJointDisplayValue(joint,displayed);
+        input.value=formatJointDisplayValue(joint,value);
+        slider.value=displayed;
+        joint.value=value;
+        joint.hasAppliedValue=true;
+        joint.appliedDegrees=value;
+        joint.renderedValue=value;
+        joint.targetValue=value;
+        joint.smoothReportedValue=false;
+        applyJointRotation(j.name,value);
+        updateSliderTrack();
+        renderJointDiagnostics();
+      });
       
       // Prevent click event from bubbling when clicking on input or slider
       input.addEventListener('click',(e)=>{ e.stopPropagation(); });
@@ -1403,6 +2388,8 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
       jointMap[j.name].slider=slider;
       jointMap[j.name].input=input;
       jointMap[j.name].updateSliderTrack=updateSliderTrack;
+      jointMap[j.name].syncControlUnit=syncControlUnit;
+      syncControlUnit();
 
       div.addEventListener('click',()=>{ highlightJoint(j.name); });
     });
@@ -1414,6 +2401,8 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
       jointMap[selectedName].controlDiv?.classList.add('selected');
       toggleJointEditor(true,selectedName);
     }
+    renderJointDiagnostics();
+    return restoredCount;
   }
 
   function applyLatestJointStates(joints){
@@ -1451,14 +2440,25 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
         continue;
       }
       matchedStates.add(state);
-      const reportedDegrees=THREE.MathUtils.radToDeg(state.position);
+      const reportedDegrees=joint.jointType==='prismatic'
+        ?Number(state.position)
+        :THREE.MathUtils.radToDeg(state.position);
       const degrees=reportedDegrees*joint.positionScale+joint.positionOffsetDeg;
+      const canSmooth=joint.hasAppliedValue&&Number.isFinite(joint.renderedValue);
       joint.value=degrees;
       joint.hasAppliedValue=true;
-      applyJointRotation(modelJointName,degrees);
-      if(joint.slider) joint.slider.value=Math.max(-360,Math.min(360,degrees));
-      if(joint.input) joint.input.value=Number(degrees.toFixed(3));
-      if(joint.updateSliderTrack) joint.updateSliderTrack();
+      joint.lastReportedRadians=Number(state.position);
+      joint.lastReportedDegrees=reportedDegrees;
+      joint.appliedDegrees=degrees;
+      joint.targetValue=degrees;
+      if(canSmooth){
+        joint.smoothReportedValue=true;
+      }else{
+        joint.renderedValue=degrees;
+        joint.smoothReportedValue=false;
+        applyJointRotation(modelJointName,degrees);
+      }
+      if(joint.syncControlUnit) joint.syncControlUnit();
       details.push({
         reportedName:joint.reportedJointName,
         modelName:modelJointName,
@@ -1480,14 +2480,69 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
         matched:false
       });
     }
-    return {received:joints.length,applied,missingConfigured,unmappedReported,details};
+    renderJointDiagnostics();
+    return {received:joints.length,applied,missingConfigured,unmappedReported,details,armSide:targetSide};
+  }
+
+  function renderJointDiagnostics(){
+    jointDiagnostics.innerHTML='';
+    const joints=Object.values(jointMap);
+    if(!joints.length){
+      const empty=document.createElement('div');
+      empty.className='joint-diagnostics-empty';
+      empty.textContent='应用 URDF 后显示关节诊断数据';
+      jointDiagnostics.appendChild(empty);
+      return;
+    }
+    const wrap=document.createElement('div');
+    wrap.className='joint-diagnostics-table-wrap';
+    const table=document.createElement('table');
+    const thead=document.createElement('thead');
+    const headRow=document.createElement('tr');
+    for(const header of ['模型节点','上报关节','Axis','空间','参考','绑定轴角°','上报 rad','上报°','倍率','偏移°','最终°']){
+      const th=document.createElement('th');
+      th.textContent=header;
+      headRow.appendChild(th);
+    }
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    const format=value=>Number.isFinite(value)?String(Number(value.toFixed(4))):'—';
+    for(const joint of joints){
+      const row=document.createElement('tr');
+      const values=[
+        joint.modelNodeName,
+        joint.reportedJointName,
+        `${joint.axis.x||0}, ${joint.axis.y||0}, ${joint.axis.z||0}`,
+        joint.rotationSpace,
+        joint.rotationReference,
+        format(getAxisTwistDegrees(joint)),
+        format(joint.lastReportedRadians),
+        format(joint.lastReportedDegrees),
+        format(joint.positionScale),
+        format(joint.positionOffsetDeg),
+        joint.hasAppliedValue?format(joint.appliedDegrees):'未应用'
+      ];
+      for(const value of values){
+        const td=document.createElement('td');
+        td.textContent=value;
+        row.appendChild(td);
+      }
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    jointDiagnostics.appendChild(wrap);
   }
 
   function renderJointMappingResult(mapping){
     const notes=[];
     if(mapping.unmappedReported.length) notes.push(`未映射：${mapping.unmappedReported.join(', ')}`);
     if(mapping.missingConfigured.length) notes.push(`未收到：${mapping.missingConfigured.join(', ')}`);
-    grpcResult.textContent=`收到 ${mapping.received} 个关节，已应用 ${mapping.applied} 个。${notes.join('；')}`;
+    const sideLabel=mapping.armSide==='left'?'左臂（编号 0）'
+      :mapping.armSide==='right'?'右臂（编号 1）'
+      :'';
+    grpcResult.textContent=`${sideLabel?sideLabel+'：':''}收到 ${mapping.received} 个关节，已应用 ${mapping.applied} 个。${notes.join('；')}`;
   }
 
   function parseLooseJson(text){
@@ -1591,29 +2646,109 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     });
   }
 
-  getLatestJointsBtn.addEventListener('click',async()=>{
+  const jointPollingIntervalMs=200;
+  let jointPollingActive=false;
+  let jointPollingTimer=null;
+  let jointFetchInFlight=false;
+  let jointFetchController=null;
+
+  function updateJointPollingControls(){
+    getLatestJointsBtn.disabled=jointPollingActive||jointFetchInFlight;
+    toggleContinuousJointsBtn.classList.toggle('active',jointPollingActive);
+    toggleContinuousJointsBtn.innerHTML=jointPollingActive
+      ?'<i class="fa-solid fa-stop"></i> 停止获取'
+      :'<i class="fa-solid fa-play"></i> 持续获取';
+  }
+
+  function stopJointPolling(showStatus=true){
+    jointPollingActive=false;
+    if(jointPollingTimer){
+      clearTimeout(jointPollingTimer);
+      jointPollingTimer=null;
+    }
+    if(jointFetchController) jointFetchController.abort();
+    updateJointPollingControls();
+    if(showStatus) setStatus('已停止持续获取关节数据');
+  }
+
+  async function fetchLatestJointStates(continuous=false){
+    if(jointFetchInFlight) return false;
     const armIndex=Number(armIndexInput.value);
-    getLatestJointsBtn.disabled=true;
-    grpcResult.textContent='正在获取...';
+    const grpcUrl=grpcBaseUrl.value.trim();
+    const requestConfig=`${grpcUrl}\n${armIndex}`;
+    jointFetchInFlight=true;
+    jointFetchController=new AbortController();
+    updateJointPollingControls();
+    if(!continuous) grpcResult.textContent='正在获取...';
     try{
-      const isGrpcUi=/\/grpcui\/?$/i.test(grpcBaseUrl.value.trim());
+      const isGrpcUi=/\/grpcui\/?$/i.test(grpcUrl);
       if(isGrpcUi && location.protocol==='file:'){
         throw new Error('请运行 node server.mjs，并通过 http://127.0.0.1:8000 打开页面');
       }
+      if(isGrpcUi && location.hostname.endsWith('.github.io')){
+        throw new Error('GitHub Pages 不运行 grpcui 代理；请使用本地 node server.mjs，或手动粘贴 Response Data');
+      }
       const joints=isGrpcUi
-        ?await window.grpcArmJoints.getLatestArmJointStatesViaLocalProxy(grpcBaseUrl.value,armIndex)
-        :await window.grpcArmJoints.getLatestArmJointStates(grpcBaseUrl.value,armIndex);
+        ?await window.grpcArmJoints.getLatestArmJointStatesViaLocalProxy(grpcUrl,armIndex,{signal:jointFetchController.signal})
+        :await window.grpcArmJoints.getLatestArmJointStates(grpcUrl,armIndex,{signal:jointFetchController.signal});
+      if(requestConfig!==`${grpcBaseUrl.value.trim()}\n${Number(armIndexInput.value)}`) return false;
+      rememberGrpcUrl(grpcUrl);
       const armSide=armIndex===0?'left':armIndex===1?'right':'';
       for(const state of joints) state.armSide=armSide;
       latestReportedJointStates=joints;
       const mapping=applyLatestJointStates(joints);
       renderJointMappingResult(mapping);
       setStatus('机械臂关节数据已更新');
+      return true;
     }catch(error){
+      if(error.name==='AbortError') return false;
       grpcResult.textContent='获取失败：'+error.message;
       setStatus('机械臂关节数据获取失败');
+      showToast(`关节数据获取失败：${error.message}`,'error',5000);
+      if(continuous) stopJointPolling(false);
+      return false;
     }finally{
-      getLatestJointsBtn.disabled=false;
+      jointFetchInFlight=false;
+      jointFetchController=null;
+      updateJointPollingControls();
+    }
+  }
+
+  async function runJointPolling(){
+    jointPollingTimer=null;
+    if(!jointPollingActive||document.hidden) return;
+    const startedAt=performance.now();
+    await fetchLatestJointStates(true);
+    if(jointPollingActive&&!document.hidden){
+      const elapsed=performance.now()-startedAt;
+      jointPollingTimer=setTimeout(runJointPolling,Math.max(30,jointPollingIntervalMs-elapsed));
+    }
+  }
+
+  getLatestJointsBtn.addEventListener('click',()=>{
+    fetchLatestJointStates(false);
+  });
+
+  toggleContinuousJointsBtn.addEventListener('click',()=>{
+    if(jointPollingActive){
+      stopJointPolling();
+      return;
+    }
+    jointPollingActive=true;
+    updateJointPollingControls();
+    setStatus('正在持续获取关节数据');
+    runJointPolling();
+  });
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      if(jointPollingTimer){
+        clearTimeout(jointPollingTimer);
+        jointPollingTimer=null;
+      }
+      if(jointFetchController) jointFetchController.abort();
+    }else if(jointPollingActive&&!jointFetchInFlight&&!jointPollingTimer){
+      runJointPolling();
     }
   });
 
@@ -1682,7 +2817,12 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
   function restoreJointBindPose(joint){
     if(!joint||!joint.node||!joint.initialQuaternion) return;
     joint.node.quaternion.copy(joint.initialQuaternion);
+    if(joint.initialPosition) joint.node.position.copy(joint.initialPosition);
     joint.hasAppliedValue=false;
+    joint.appliedDegrees=null;
+    joint.renderedValue=null;
+    joint.targetValue=null;
+    joint.smoothReportedValue=false;
   }
 
   function applyJointRotation(name,deg){
@@ -1690,6 +2830,11 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     const ax=new THREE.Vector3(j.axis.x||0,j.axis.y||0,j.axis.z||0).normalize();
     if(ax.lengthSq()===0) return;
     if(!j.initialQuaternion) j.initialQuaternion=j.node.quaternion.clone();
+    if(j.jointType==='prismatic'){
+      if(!j.initialPosition) j.initialPosition=j.node.position.clone();
+      j.node.position.copy(j.initialPosition).addScaledVector(ax,deg);
+      return;
+    }
     const jointQ=new THREE.Quaternion().setFromAxisAngle(ax,THREE.MathUtils.degToRad(deg));
     if(j.rotationReference==='absolute'){
       // GLB 的绑定姿态可能已在关节轴上带有 ±90°/180°。
@@ -1869,12 +3014,38 @@ document.getElementById('saveJointBtn').addEventListener('click',saveJointEdits)
     setStatus(error.message);
   });
 
-  function animate(){
+  let previousFrameTime=performance.now();
+  function animate(frameTime){
     requestAnimationFrame(animate);
+    const currentFrameTime=Number.isFinite(frameTime)?frameTime:performance.now();
+    const deltaSeconds=Math.min(Math.max((currentFrameTime-previousFrameTime)/1000,0),0.1);
+    previousFrameTime=currentFrameTime;
     controls.update();
     if(selfCheckActive){
       const t=Date.now()*0.001;
-      for(const k in jointMap){ const j=jointMap[k]; const val=Math.sin(t)*360; applyJointRotation(k,val); }
+      for(const k in jointMap){
+        const j=jointMap[k];
+        const min=Number(j.slider&&j.slider.min);
+        const max=Number(j.slider&&j.slider.max);
+        const val=j.jointType==='prismatic'&&Number.isFinite(min)&&Number.isFinite(max)
+          ?min+(Math.sin(t)+1)*(max-min)/2
+          :Math.sin(t)*360;
+        applyJointRotation(k,val);
+      }
+    }else{
+      const smoothingAlpha=1-Math.exp(-deltaSeconds*12);
+      for(const [name,joint] of Object.entries(jointMap)){
+        if(!joint.smoothReportedValue||!Number.isFinite(joint.targetValue)||!Number.isFinite(joint.renderedValue)) continue;
+        const difference=joint.targetValue-joint.renderedValue;
+        const threshold=joint.jointType==='prismatic'?0.00001:0.01;
+        if(Math.abs(difference)<=threshold){
+          joint.renderedValue=joint.targetValue;
+          joint.smoothReportedValue=false;
+        }else{
+          joint.renderedValue+=difference*smoothingAlpha;
+        }
+        applyJointRotation(name,joint.renderedValue);
+      }
     }
     renderer.render(scene,camera);
   }
